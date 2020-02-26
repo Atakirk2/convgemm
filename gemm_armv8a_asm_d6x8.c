@@ -50,20 +50,20 @@
  * Tested on Juno board. Around  3.1 GFLOPS, 1 x A53 core  @ 850 MHz. 
  * Tested on Juno board. Around 12   GFLOPS, 4 x A53 cores @ 850 MHz.
 */
-void bli_sgemm_armv8a_asm_8x12
+void sgemm_armv8a_asm_8x12
      (
        dim_t               k0,
        float*     restrict alpha,
        float*     restrict a,
        float*     restrict b,
        float*     restrict beta,
-       float*     restrict c, inc_t rs_c0, inc_t cs_c0,
-       auxinfo_t* restrict data,
-       cntx_t*    restrict cntx
+       float*     restrict c, inc_t rs_c0, inc_t cs_c0//,
+      // auxinfo_t* restrict data,
+       //cntx_t*    restrict cntx
      )
 {
-	void* a_next = bli_auxinfo_next_a( data );
-	void* b_next = bli_auxinfo_next_b( data );
+	//void* a_next = bli_auxinfo_next_a( data );
+	//void* b_next = bli_auxinfo_next_b( data );
 
 	// Typecast local copies of integers in case dim_t and inc_t are a
 	// different size than is expected by load instructions.
@@ -81,8 +81,8 @@ __asm__ volatile
 " ldr x1,%[baddr]                            \n\t" // Load address of B.
 " ldr x2,%[caddr]                            \n\t" // Load address of C.
 "                                            \n\t"
-" ldr x3,%[a_next]                           \n\t" // Pointer to next block of A.
-" ldr x4,%[b_next]                           \n\t" // Pointer to next pointer of B.
+//" ldr x3,%[a_next]                           \n\t" // Pointer to next block of A.
+//" ldr x4,%[b_next]                           \n\t" // Pointer to next pointer of B.
 "                                            \n\t"
 " ldr x5,%[k_iter]                           \n\t" // Number of unrolled iterations (k_iter).
 " ldr x6,%[k_left]                           \n\t" // Number of remaining iterations (k_left).
@@ -655,8 +655,8 @@ __asm__ volatile
 "                                            \n\t"
 " .SBETAZEROCOLSTOREDS4:                     \n\t"
 "                                            \n\t"
-" prfm pldl2keep,[x3]                        \n\t"
-" prfm pldl2keep,[x4]                        \n\t"
+//" prfm pldl2keep,[x3]                        \n\t"
+//" prfm pldl2keep,[x4]                        \n\t"
 "                                            \n\t"
 " fmla v8.4s, v26.4s,v6.s[0]                 \n\t" // Scale by alpha
 " fmla v9.4s, v27.4s,v6.s[0]                 \n\t" // Scale by alpha
@@ -1062,9 +1062,9 @@ __asm__ volatile
  [alpha]  "m" (alpha),  // 5
  [beta]   "m" (beta),   // 6
  [rs_c]   "m" (rs_c),   // 7
- [cs_c]   "m" (cs_c),   // 8
+ [cs_c]   "m" (cs_c)/*,   // 8
  [a_next] "m" (a_next), // 9
- [b_next] "m" (b_next) // 10
+ [b_next] "m" (b_next) // 10*/
 :// Register clobber list
  "x0", "x1", "x2","x3","x4",
  "x5", "x6", "x7", "x8",
