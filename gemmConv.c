@@ -90,7 +90,8 @@ void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		double * A, unsigned int lda,
 		double * B, unsigned int ldb,
 		double beta,
-		double * C, unsigned int ldc){
+		double * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v){
             
 	double *Ac, *Bc;
 	double *Cc;
@@ -99,11 +100,9 @@ void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 	double betaInner;
 
 
-	double *Ac_pack,
-           *Bc_pack;
+  	double *Ac_pack=(double *)Ac_pack_v;
+	double *Bc_pack=(double *)Bc_pack_v;
 
-    posix_memalign(&Ac_pack, 4096, BLOCK_MC*BLOCK_KC*sizeof(double));
-    posix_memalign(&Bc_pack, 4096, BLOCK_MC*BLOCK_KC*sizeof(double));
     
 	//int *a_pack_threads = 1;
 	//int *b_pack_threads = 1;
@@ -227,7 +226,8 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		float * A, unsigned int lda,
 		float * B, unsigned int ldb,
 		float beta,
-		float * C, unsigned int ldc){
+		float * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v ){
             
 	float *Ac, *Bc;
 	float *Cc;
@@ -235,13 +235,10 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 	float *Cr;
 	float betaInner;
 
-
-	float *Ac_pack,
-           *Bc_pack;
-
-    posix_memalign(&Ac_pack, 4096, BLOCK_MC*BLOCK_KC*sizeof(float));
-    posix_memalign(&Bc_pack, 4096, BLOCK_MC*BLOCK_KC*sizeof(float));
     
+    float *Ac_pack=(float *)Ac_pack_v;
+	float *Bc_pack=(float *)Bc_pack_v;
+           
 	//int *a_pack_threads = 1;
 	//int *b_pack_threads = 1;
 

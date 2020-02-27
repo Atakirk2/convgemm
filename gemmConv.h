@@ -24,7 +24,8 @@ void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		double * A, unsigned int lda,
 		double * B, unsigned int ldb,
 		double  betap,
-		double * C, unsigned int ldc);
+		double * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v );
 
 void dgemm_armv8a_asm_6x8(int k, double*  restrict alpha, double* restrict a, double* restrict b, double*    restrict beta, double* restrict c, int rs_c, int cs_c);
 void dgemm_ref(int k, int mr_alg, int nr_alg, 	double* restrict alpha, double* restrict a, double* restrict b, double* restrict beta, double* restrict c, int rs_c, int cs_c);
@@ -35,7 +36,8 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		float * A, unsigned int lda,
 		float * B, unsigned int ldb,
 		float  betap,
-		float * C, unsigned int ldc);
+		float * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v);
 
 void sgemm_armv8a_asm_8x12(int k,float* restrict alpha, float* restrict a, float* restrict b, float* restrict beta, float* restrict c, int rs_c, int cs_c);
 void sgemm_ref(int k, int mr_alg, int nr_alg, 	float* restrict alpha, float* restrict a, float* restrict b, float* restrict beta, float* restrict c, int rs_c, int cs_c);
