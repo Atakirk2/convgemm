@@ -2,22 +2,22 @@
 #include <stdint.h>
 
 
-//kernel 6x8 (double)
-#ifdef DOUBLE
-    #define BLOCK_NC 3072
-    #define BLOCK_KC 240
-    #define BLOCK_MC 120
-    #define BLOCK_NR 8
-    #define BLOCK_MR 6
-    #define MAX_THREAD 4
-#else
-    #define BLOCK_NC 3072
-    #define BLOCK_KC 640
-    #define BLOCK_MC 120
-    #define BLOCK_NR 12
-    #define BLOCK_MR 8
-    #define MAX_THREAD 4
-#endif
+
+
+#define dBLOCK_NC 3072
+#define dBLOCK_KC 240
+#define dBLOCK_MC 120
+#define dBLOCK_NR 8
+#define dBLOCK_MR 6
+#define dMAX_THREAD 4
+
+#define BLOCK_NC 3072
+#define BLOCK_KC 640
+#define BLOCK_MC 120
+#define BLOCK_NR 12
+#define BLOCK_MR 8
+#define MAX_THREAD 4
+
 
 void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		double  alphap,

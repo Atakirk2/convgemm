@@ -9,14 +9,7 @@
 #include "gemmConv.h"
 //#include "blis.h"
 
-/*
-#define BLOCK_NC 4032 //4080
-#define BLOCK_KC 256
-#define BLOCK_MC 72
-#define BLOCK_NR 6
-#define BLOCK_MR 8
 
-*/
 
 
 //OLD definition, mantained for documentation purposes
@@ -30,10 +23,10 @@ void dPack_A(double *A, unsigned int lda, double *A_pack, unsigned int m, unsign
 	//	#pragma omp single
 //		#pragma omp taskloop private(A_pack_local) num_tasks((*n_threads))
 //		#pragma omp  parallel for num_threads(*n_threads) private(A_pack_local)
-	for(unsigned int ic=0;ic<m;ic+=BLOCK_MR){
+	for(unsigned int ic=0;ic<m;ic+=dBLOCK_MR){
 
 		A_pack_local=&A_pack[ic*k];
-		unsigned int m_alg=fmin(BLOCK_MR,m-ic);
+		unsigned int m_alg=fmin(dBLOCK_MR,m-ic);
 		for(unsigned int pc=0;pc<k;pc++){
 
 			for(unsigned int ir=0;ir<m_alg;ir++){
@@ -57,10 +50,10 @@ void dPack_B(double *B, unsigned int ldb, double *B_pack, unsigned int k, unsign
 	//	#pragma omp single
 //		#pragma omp taskloop private(B_pack_local) num_tasks((*n_threads))
 		////#pragma omp parallel for num_threads(*n_threads) private(B_pack_local)
-	for(unsigned int jc=0;jc<n;jc+=BLOCK_NR){
+	for(unsigned int jc=0;jc<n;jc+=dBLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
-		unsigned int n_alg=fmin(BLOCK_NR,n-jc);
+		unsigned int n_alg=fmin(dBLOCK_NR,n-jc);
 		for(unsigned int pc=0;pc<k;pc++){
 
 			for(unsigned int jr=0;jr<n_alg;jr++){
@@ -109,13 +102,13 @@ void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 
 
 	//printf("alda %u blda %u clda %u\n", lda, ldb, ldc);
-	for (unsigned int jc=0; jc<n; jc+=BLOCK_NC) {
+	for (unsigned int jc=0; jc<n; jc+=dBLOCK_NC) {
 
-		unsigned int n_alg=fmin(BLOCK_NC,n-jc);
-		for (unsigned int pc=0; pc<k; pc+=BLOCK_KC) {
+		unsigned int n_alg=fmin(dBLOCK_NC,n-jc);
+		for (unsigned int pc=0; pc<k; pc+=dBLOCK_KC) {
 
-			unsigned int k_alg=fmin(BLOCK_KC,k-pc);
-			if (pc >= BLOCK_KC) //Check beta
+			unsigned int k_alg=fmin(dBLOCK_KC,k-pc);
+			if (pc >= dBLOCK_KC) //Check beta
 				betaInner=1.0;
 			else
 				betaInner=beta;
@@ -127,10 +120,10 @@ void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 			dPack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
 
 			//#pragma omp parallel for num_threads(*ic_threads_nt) private(Ac, Cc, Ar, Br, Cr)
-			for (unsigned int ic=0; ic<m; ic+=BLOCK_MC) {
+			for (unsigned int ic=0; ic<m; ic+=dBLOCK_MC) {
 
-				unsigned int m_alg=fmin(BLOCK_MC,m-ic);
-				//				double *Ac_pack_local=&Ac_pack[omp_get_thread_num()*BLOCK_MC*BLOCK_KC]; // Ac pack pointer per Loop 3 thread
+				unsigned int m_alg=fmin(dBLOCK_MC,m-ic);
+				//				double *Ac_pack_local=&Ac_pack[omp_get_thread_num()*dBLOCK_MC*dBLOCK_KC]; // Ac pack pointer per Loop 3 thread
 				double *Ac_pack_local=Ac_pack; // Ac pack pointer per Loop 3 thread -- antes este en uso
 
 				//total_threads_a = (*jr_threads_nt) * (*ir_threads_nt);
@@ -145,17 +138,17 @@ void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 				// #pragma omp parallel num_threads(*jr_threads_nt)
 				//#pragma omp taskloop private(Ar, Br, Cr) num_tasks((*jr_threads_nt))
 			////		#pragma omp  parallel for num_threads(*jr_threads_nt) private(Ar, Br, Cr)
-				for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR){
+				for(unsigned jr=0;jr<n_alg;jr+=dBLOCK_NR){
 					//printf("soy %d/%d\n", omp_get_thread_num(), *jr_threads_nt);
-					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
+					unsigned int nr_alg=fmin(dBLOCK_NR,n_alg-jr);
 					//printf("secs nr_alg %d n_threads %d\n", nr_alg, *jr_threads_nt);
-					for(unsigned int ir=0;ir<m_alg;ir+=BLOCK_MR){
-						unsigned int mr_alg=fmin(BLOCK_MR,m_alg-ir);
+					for(unsigned int ir=0;ir<m_alg;ir+=dBLOCK_MR){
+						unsigned int mr_alg=fmin(dBLOCK_MR,m_alg-ir);
 						Ar=&Ac_pack_local[ir*k_alg];
 						Br=&Bc_pack[jr*k_alg];
 						Cr=&Cc[ir+jr*ldc];
 
-						if(mr_alg==BLOCK_MR && nr_alg==BLOCK_NR)
+						if(mr_alg==dBLOCK_MR && nr_alg==dBLOCK_NR)
 						{
 							//printf("secs k_alg %d *aphap %p Ar %p Br %p beta %f Cr %p ldc %u\n", k_alg, &alpha, Ar, Br, betaInner, Cr, ldc);	
                             dgemm_armv8a_asm_6x8(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
