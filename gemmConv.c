@@ -300,3 +300,134 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 	}
 }
 
+void sPack_im2Col(unsigned int i, unsigned int j,float *B, float *B_pack, unsigned int k, unsigned int n,             
+                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
+                 unsigned int kh, unsigned int kw, unsigned int stride)
+
+{
+    unsigned int ic,ikw,ikh, //Row related indexes (regarding the phantom matrix)
+                 ib,iw,ih, //Col related indexes (regarding the phantom matrix)
+                 pos; //position on the original image
+                 
+	float *B_pack_local;
+    
+   
+    
+
+	//	#pragma omp parallel
+	//	#pragma omp single
+//		#pragma omp taskloop private(B_pack_local) num_tasks((*n_threads))
+		////#pragma omp parallel for num_threads(*n_threads) private(B_pack_local)
+	for(unsigned int jc=0;jc<n;jc+=BLOCK_NR){
+
+		B_pack_local=&B_pack[jc*k];
+		unsigned int n_alg=fmin(BLOCK_NR,n-jc);
+		for(unsigned int pc=0;pc<k;pc++){
+            ic = (i+pc)/(kw*kh);
+            ikw = ((i+pc)%(kw*kh))/kh;
+            ikh = ((i+pc)%(iw*kh))%kh;
+			for(unsigned int jr=0;jr<n_alg;jr++){
+                ib = (j+jc+jr)/(w*h);
+                iw = ((j+jc+jr)%(w*h))/h;
+                ih = ((j+jc+jr)%(w*h))%h;
+                pos = ib * c*h*w + ic * h*w + (iw*stride + ikw) *h + (ih * stride+ikh);
+				
+                B_pack_local[0]=B[pos];//B[pc+jc*ldb+jr*ldb];
+				B_pack_local++;
+			}
+		}
+
+	}
+}
+
+
+
+void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+		float alpha, float * A, 
+        unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
+		float * B, float beta,
+		float * C,
+        float * Ac_pack, float * Bc_pack ){
+            
+	float *Ac, *Bc;
+	float *Cc;
+	float *Ar, *Br;
+	float *Cr;
+	float betaInner;
+
+    unsigned int m = kn,
+                 n = h*w*b,
+                 k = kh*kw*c;
+          
+    unsigned int lda= kn,
+                 ldb = kh*kw*c,//TODO error
+                 ldc= kn;
+    
+
+           
+
+
+
+	//printf("alda %u blda %u clda %u\n", lda, ldb, ldc);
+	for (unsigned int jc=0; jc<n; jc+=BLOCK_NC) {
+
+		unsigned int n_alg=fmin(BLOCK_NC,n-jc);
+		for (unsigned int pc=0; pc<k; pc+=BLOCK_KC) {
+
+			unsigned int k_alg=fmin(BLOCK_KC,k-pc);
+			if (pc >= BLOCK_KC) //Check beta
+				betaInner=1.0;
+			else
+				betaInner=beta;
+
+			//total_threads_b = (*ic_threads_nt) * (*jr_threads_nt) * (*ir_threads_nt);
+			//b_pack_threads = &total_threads_b;
+
+
+			sPack_im2Col(pc,jc, B, Bc_pack, k_alg, n_alg, b,c,h,w,kh,kw, stride);  //PACK B
+
+			//#pragma omp parallel for num_threads(*ic_threads_nt) private(Ac, Cc, Ar, Br, Cr)
+			for (unsigned int ic=0; ic<m; ic+=BLOCK_MC) {
+
+				unsigned int m_alg=fmin(BLOCK_MC,m-ic);
+				//				float *Ac_pack_local=&Ac_pack[omp_get_thread_num()*BLOCK_MC*BLOCK_KC]; // Ac pack pointer per Loop 3 thread
+				float *Ac_pack_local=Ac_pack; // Ac pack pointer per Loop 3 thread -- antes este en uso
+
+				//total_threads_a = (*jr_threads_nt) * (*ir_threads_nt);
+				//a_pack_threads = &total_threads_a;
+
+				Ac=&A[ic+pc*lda];
+				sPack_A(Ac,lda,(float*)Ac_pack_local,m_alg,k_alg); //PACK A
+
+				Cc=&C[ic+jc*ldc];
+
+				//printf("jr %d\n", *jr_threads_nt);
+				// #pragma omp parallel num_threads(*jr_threads_nt)
+				//#pragma omp taskloop private(Ar, Br, Cr) num_tasks((*jr_threads_nt))
+			////		#pragma omp  parallel for num_threads(*jr_threads_nt) private(Ar, Br, Cr)
+				for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR){
+					//printf("soy %d/%d\n", omp_get_thread_num(), *jr_threads_nt);
+					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
+					//printf("secs nr_alg %d n_threads %d\n", nr_alg, *jr_threads_nt);
+					for(unsigned int ir=0;ir<m_alg;ir+=BLOCK_MR){
+						unsigned int mr_alg=fmin(BLOCK_MR,m_alg-ir);
+						Ar=&Ac_pack_local[ir*k_alg];
+						Br=&Bc_pack[jr*k_alg];
+						Cr=&Cc[ir+jr*ldc];
+
+						if(mr_alg==BLOCK_MR && nr_alg==BLOCK_NR)
+						{
+							//printf("secs k_alg %d *aphap %p Ar %p Br %p beta %f Cr %p ldc %u\n", k_alg, &alpha, Ar, Br, betaInner, Cr, ldc);	
+                            sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						}
+						else{//Micro-kernel cannot be applied
+							//printf("secs k_alg %d mr_alg %u nr_alg %u *aphap %p Ar %p Br %p beta %f Cr %p ldc %u\n", k_alg, mr_alg, nr_alg, &alpha, Ar, Br, betaInner, Cr, ldc);	
+							sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						}
+					}
+				}
+
+			}
+		}
+	}
+}

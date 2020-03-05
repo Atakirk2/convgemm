@@ -46,7 +46,7 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
                             Out[row + col * c*kw*kh] = In[ib * c*h*w + ic * h*w +
                                                         (iw * stride + ikw) * h + (stride * ih + ikh)];
                         }
-                }
+                }         
 }
 
 void convolutionNaive(const int h, const int w, const int c,const int b,const float* In,const int kh,const int kw, const int kn, const float* F, float* Out, const int stride,const int pad)
@@ -78,18 +78,16 @@ void padMatrix()
     
 }
 
-int compareMatrix(const int m,const int n, double* M, const int ldm, double* M2, const int ldm2){
+float compareMatrix(const int m,const int n, float* M, const int ldm, float* M2, const int ldm2){
     
-    int equal = 1;
-    double norm = 0;
-    
-    bli_dsubm(0,BLIS_NONUNIT_DIAG,BLIS_DENSE,BLIS_NO_TRANSPOSE,m,n,M,1,ldm,M2,1,ldm2);
-    bli_dnormfv(m*n,M2,1,&norm);
 
-    if (norm > EPS)
-        equal = 0;
+    float norm = 0, normM2 = 0;
     
-    return equal;
+    bli_snormfv(m*n,M2,1,&normM2);
+    bli_ssubm(0,BLIS_NONUNIT_DIAG,BLIS_DENSE,BLIS_NO_TRANSPOSE,m,n,M,1,ldm,M2,1,ldm2);
+    bli_snormfv(m*n,M2,1,&norm);
+    
+    return norm/normM2;
 }
 
 int main( int argc, char** argv )
@@ -111,8 +109,11 @@ int main( int argc, char** argv )
     
     float *F, *In, 
          *OutConv, *OutI2c, *OutImp,
-         *Aux;
+         *Aux,
+         *Ac_pack, *Bc_pack;
 
+    Ac_pack = (float*) aligned_alloc(4096,BLOCK_MC*BLOCK_KC*sizeof(float));
+    Bc_pack = (float*) aligned_alloc(4096,BLOCK_KC*BLOCK_NC*sizeof(float));
     
     if (argc != 11)
     {
@@ -139,6 +140,7 @@ int main( int argc, char** argv )
     pad =atoi(argv[9]);
     repe =atoi(argv[10]);
                 
+    printf("Allocating matrices...\n");
     
     In = (float*) malloc(h*w*c *b * sizeof(float));
     F = (float*) malloc(kh*kw*c *kn * sizeof(float));
@@ -151,13 +153,18 @@ int main( int argc, char** argv )
     OutI2c= (float*) malloc(ho*wo*kn*b * sizeof(float));
     OutImp = (float*) malloc(ho*wo*kn*b * sizeof(float));
     
+    printf("Generating random matrices...\n");
+    bli_srandm( 0, BLIS_DENSE, b, h*w*c, In, 1, b );
+    bli_srandm( 0, BLIS_DENSE, kn, kh*kw*c, F, 1, kn );
+    
+    printf("Starting evaluation...\n");
     for(i = 0; i <  repe; i++)
     {
         //Timing naive convolution
         tIni = bli_clock();
         convolutionNaive(h,w,c,b,In,kh,kw,kn,F,OutConv, stride,pad);
         tConv += bli_clock() - tIni;
-        
+
         //Timing im2col +gemm
         tIni = bli_clock();
         im2Col (ho,wo,c,b,In,kh,kw, stride,Aux);
@@ -169,7 +176,7 @@ int main( int argc, char** argv )
         
         //Timing implicint gemm
         tIni = bli_clock();
-        //gemm_conv
+        sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, In, 0,OutImp,Ac_pack,Bc_pack);
         tImp += bli_clock() -tIni;
 
     }
@@ -181,10 +188,12 @@ int main( int argc, char** argv )
     
 
     
-    printf("Convolution Time: %.3g \n",tConv);
-    printf("im2Col Time: %.3g \n",tIm2Col);
-    printf("im2Col + Gemm Time: %.3g \n",tIm2ColGemm);
-    printf("Implicit Gemm Time: %.3g \n",tImp);
+    printf("Convolution Time: %.4g \n",tConv);
+    printf("im2Col + Gemm Time: %.4g [Im2Col: %.4g , Gemm: %.4g] \n",tIm2ColGemm, tIm2Col, tIm2ColGemm -tIm2Col);
+    printf("Implicit Gemm Time: %.4g \n",tImp);
+    
+    printf("norm(OutIm2col-OutImplicit)=%g\n",compareMatrix(kn,ho*wo*b,OutI2c,kn,OutImp,kn));
+
     
     free(In);
     free(F);
