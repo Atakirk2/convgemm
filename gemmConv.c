@@ -307,36 +307,69 @@ void sPack_im2Col(unsigned int i, unsigned int j,float *B, float *B_pack, unsign
 {
     unsigned int ic,ikw,ikh, //Row related indexes (regarding the phantom matrix)
                  ib,iw,ih, //Col related indexes (regarding the phantom matrix)
-                 pos; //position on the original image
-                 
+                 pos, pos_ic, pos_ib, pos_ikw; //position on the original image
+    unsigned int pos_ic_ini,ikw_ini,ikh_ini,pos_ib_ini,iw_ini,ih_ini; //Initial values of indexes
+    
+    unsigned int cSize = h*w, //chanel memory leap
+                 kSize = kh*kw, //kernel memory leap (single chanel)
+                 bSize = c*h*w; //batch memory leap
+    
+    unsigned int jc,pc,jr; //loop control indexes
 	float *B_pack_local;
     
-   
+    ic = i/kSize;
+    ikw_ini = (i%kSize)/kh;
+    ikh_ini = (i%kSize)%kh;
+
+    ib = j/(cSize);
+    iw_ini = (j%(cSize))/h;
+    ih_ini = (j%(cSize))%h;
+    
+    pos_ic_ini = ic * cSize;
+    pos_ib_ini = ib * bSize;
     
 
-	//	#pragma omp parallel
-	//	#pragma omp single
-//		#pragma omp taskloop private(B_pack_local) num_tasks((*n_threads))
-		////#pragma omp parallel for num_threads(*n_threads) private(B_pack_local)
-	for(unsigned int jc=0;jc<n;jc+=BLOCK_NR){
+
+	for(jc=0;jc<n;jc+=BLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
 		unsigned int n_alg=fmin(BLOCK_NR,n-jc);
-		for(unsigned int pc=0;pc<k;pc++){
-            ic = (i+pc)/(kw*kh);
-            ikw = ((i+pc)%(kw*kh))/kh;
-            ikh = ((i+pc)%(iw*kh))%kh;
-			for(unsigned int jr=0;jr<n_alg;jr++){
-                ib = (j+jc+jr)/(w*h);
-                iw = ((j+jc+jr)%(w*h))/h;
-                ih = ((j+jc+jr)%(w*h))%h;
-                pos = ib * c*h*w + ic * h*w + (iw*stride + ikw) *h + (ih * stride+ikh);
+        pos_ikw = ikw_ini * h;
+		for(pc=0,pos_ic=pos_ic_ini,ikw=ikw_ini,ikh=ikh_ini;pc<k;pc++,ikh++){
+            if(ikh==kh)
+            {
+                ikh=0;
+                ikw++;
+                
+                if(ikw==kw)
+                {
+                    ikw=0;
+                    pos_ic += cSize;//OPT ic++;pos_ic = ic * cSize;
+                }
+                pos_ikw = ikw * h;
+            }
+            
+			for(jr=0,pos_ib=pos_ib_ini,iw=iw_ini,ih=ih_ini;jr<n_alg;jr++,ih++){
+                if(ih==h)
+                {
+                    ih=0;
+                    iw++;
+                    if(iw==w)
+                    {
+                        iw=0;
+                        pos_ib += bSize;//OPT ib++;pos_in = ib*bSize;
+                    }
+                }
+                //OPT pos = ib * bSize  + ic * cSize + (iw*stride + ikw) *h + (ih * stride+ikh);
+                pos = pos_ib + pos_ic + (iw*stride*h + pos_ikw) + (ih * stride+ikh);
 				
                 B_pack_local[0]=B[pos];//B[pc+jc*ldb+jr*ldb];
 				B_pack_local++;
 			}
 		}
-
+        ih_ini = ih;
+        iw_ini = iw;
+        pos_ib_ini = pos_ib;
 	}
 }
 
