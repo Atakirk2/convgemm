@@ -300,14 +300,14 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 	}
 }
 
-void sPack_im2Col(unsigned int i, unsigned int j,float *B, float *B_pack, unsigned int k, unsigned int n,             
+void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * restrict B_pack, unsigned int k, unsigned int n,             
                  unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
                  unsigned int kh, unsigned int kw, unsigned int stride)
 
 {
     unsigned int ic,ikw,ikh, //Row related indexes (regarding the phantom matrix)
                  ib,iw,ih, //Col related indexes (regarding the phantom matrix)
-                 pos, pos_ic, pos_ib, pos_ikw; //position on the original image
+                 pos, pos_ic, pos_ib, pos_ic_ikw; //position on the original image
     unsigned int pos_ic_ini,ikw_ini,ikh_ini,pos_ib_ini,iw_ini,ih_ini; //Initial values of indexes
     
     unsigned int cSize = h*w, //chanel memory leap
@@ -315,7 +315,7 @@ void sPack_im2Col(unsigned int i, unsigned int j,float *B, float *B_pack, unsign
                  bSize = c*h*w; //batch memory leap
     
     unsigned int jc,pc,jr; //loop control indexes
-	float *B_pack_local;
+	float * restrict B_pack_local;
     
     ic = i/kSize;
     ikw_ini = (i%kSize)/kh;
@@ -334,22 +334,28 @@ void sPack_im2Col(unsigned int i, unsigned int j,float *B, float *B_pack, unsign
 
 		B_pack_local=&B_pack[jc*k];
 		unsigned int n_alg=fmin(BLOCK_NR,n-jc);
-        pos_ikw = ikw_ini * h;
-		for(pc=0,pos_ic=pos_ic_ini,ikw=ikw_ini,ikh=ikh_ini;pc<k;pc++,ikh++){
+        
+        
+        pos_ic=pos_ic_ini;
+        ikw=ikw_ini;
+        pos_ic_ikw = ikw * h + pos_ic;
+		for(pc=0,ikh=ikh_ini;pc<k;pc++,ikh++){
             if(ikh==kh)
             {
                 ikh=0;
                 ikw++;
-                
+                pos_ic_ikw += h; //OPT pos_ic_ikw = ikw* h +pos_ic
                 if(ikw==kw)
                 {
                     ikw=0;
                     pos_ic += cSize;//OPT ic++;pos_ic = ic * cSize;
+                    pos_ic_ikw = pos_ic;//OPT pos_ic_ikw = ikw *h + pos_ic;
                 }
-                pos_ikw = ikw * h;
             }
             
-			for(jr=0,pos_ib=pos_ib_ini,iw=iw_ini,ih=ih_ini;jr<n_alg;jr++,ih++){
+            pos_ib=pos_ib_ini;
+            iw=iw_ini;
+			for(jr=0,ih=ih_ini;jr<n_alg;jr++,ih++){
                 if(ih==h)
                 {
                     ih=0;
@@ -361,9 +367,10 @@ void sPack_im2Col(unsigned int i, unsigned int j,float *B, float *B_pack, unsign
                     }
                 }
                 //OPT pos = ib * bSize  + ic * cSize + (iw*stride + ikw) *h + (ih * stride+ikh);
-                pos = pos_ib + pos_ic + (iw*stride*h + pos_ikw) + (ih * stride+ikh);
-				
-                B_pack_local[0]=B[pos];//B[pc+jc*ldb+jr*ldb];
+                //OPT pos = pos_ib + pos_ic + (iw*stride*h + pos_ikw) + (ih * stride+ikh);
+				pos = pos_ib + pos_ic_ikw + iw*stride*h + (ih * stride+ikh);
+                
+                B_pack_local[0]=B[pos];
 				B_pack_local++;
 			}
 		}
