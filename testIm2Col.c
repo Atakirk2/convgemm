@@ -49,28 +49,27 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
                 }         
 }
 
-void convolutionNaive(const int h, const int w, const int c,const int b,const float* In,const int kh,const int kw, const int kn, const float* F, float* Out, const int stride,const int pad)
+
+
+void convolutionNaive(const int h, const int w, const int c,const int b,const float* In,const int kh,const int kw, const int kn, const float* F, float* Out, const int stride)
 {
+
+    int ic, ikh, ikw, ih, iw, ib, ik;    
+    float ZERO = 0.0;
     
-/*    def convolution2d_naive(input, weights, bias, p=0, s=1):
-    h, w, ci, b    = input.shape
-    co, kh, kw, ci = weights.shape
-    ho = int((h + 2 * p - kh) / s + 1)
-    wo = int((w + 2 * p - kw) / s + 1)
-    input = input.transpose(3, 2, 0, 1) # b, c, h, w, this is needed for padding
-    input_padded = np.pad(input, ((0, 0), (0, 0), (p, p), (p, p)), mode='constant').transpose(2, 3, 1, 0)
-    out = np.zeros((ho, wo, co, b))
-    for b_ in range(b):
-        for co_ in range(co):
-            for ci_ in range(ci):
-                for h_ in range(ho):
-                    for w_ in range(wo):
-                        for kh_ in range(kh):
-                            for kw_ in range(kw):                        
-                                out[h_, w_, co_, b_] += input_padded[h_ * s + kh_, w_ * s + kw_, ci_, b_] * weights[co_, kh_, kw_, ci_]
-            out[..., co_, b_] += bias[co_]
-    return out
-    */
+    
+    bli_ssetv(BLIS_NO_CONJUGATE,h*w*kn*b,&ZERO,Out,1);
+    for(ib = 0;ib < b; ib++)    
+        for( ic = 0; ic < c; ic++)
+            for(iw = 0; iw < w; iw++)                
+                for(ih = 0; ih < h; ih++)
+                    for(ikw = 0; ikw < kw; ikw++)
+                        for(ikh = 0; ikh < kh; ikh++)
+                            for(ik=0;ik < kn; ik++)
+                                Out[ik + ( ib*w*h + iw*h + ih) *kn] += 
+                                In[ib * c*h*w + ic * h*w + (iw * stride + ikw) * h + (stride * ih + ikh)] 
+                                * F[ik + (ic * kh*kw + ikw * kh + ikh  ) * kn];
+
 }
 
 void padMatrix()
@@ -93,7 +92,7 @@ float compareMatrix(const int m,const int n, float* M, const int ldm, float* M2,
 int main( int argc, char** argv )
 {
     double tConv = 0.0, tIm2Col = 0.0, tIm2ColGemm = 0, tImp = 0.0, tIni,
-            gflopsConv, gflopsIm2Col, gflopsImp;
+            perfPeak,perfGemm, perfImp;
             
     float ONE = 1, ZERO = 0;
     
@@ -112,8 +111,7 @@ int main( int argc, char** argv )
          *Aux,
          *Ac_pack, *Bc_pack;
 
-    Ac_pack = (float*) aligned_alloc(4096,BLOCK_MC*BLOCK_KC*sizeof(float));
-    Bc_pack = (float*) aligned_alloc(4096,BLOCK_KC*BLOCK_NC*sizeof(float));
+         
     
     if (argc != 11)
     {
@@ -142,16 +140,23 @@ int main( int argc, char** argv )
                 
     printf("Allocating matrices...\n");
     
+    //input matrices
     In = (float*) malloc(h*w*c *b * sizeof(float));
     F = (float*) malloc(kh*kw*c *kn * sizeof(float));
 
     ho = floor((h - kh + 2 * pad) / stride + 1);
     wo = floor((w - kw + 2 * pad) / stride + 1);
     
+    //auxiliar matrices
+    Ac_pack = (float*) aligned_alloc(4096,BLOCK_MC*BLOCK_KC*sizeof(float));
+    Bc_pack = (float*) aligned_alloc(4096,BLOCK_KC*BLOCK_NC*sizeof(float));
     Aux = (float*) malloc(c*kh*kw * ho*wo*b * sizeof(float));
+    
+    //output matrices 
     OutConv = (float*) malloc(ho*wo*kn*b * sizeof(float));
     OutI2c= (float*) malloc(ho*wo*kn*b * sizeof(float));
     OutImp = (float*) malloc(ho*wo*kn*b * sizeof(float));
+    
     
     printf("Generating random matrices...\n");
     bli_srandm( 0, BLIS_DENSE, b, h*w*c, In, 1, b );
@@ -162,7 +167,7 @@ int main( int argc, char** argv )
     {
         //Timing naive convolution
         tIni = bli_clock();
-        convolutionNaive(h,w,c,b,In,kh,kw,kn,F,OutConv, stride,pad);
+        convolutionNaive(ho,wo,c,b,In,kh,kw,kn,F,OutConv, stride);
         tConv += bli_clock() - tIni;
 
         //Timing im2col +gemm
@@ -170,6 +175,7 @@ int main( int argc, char** argv )
         im2Col (ho,wo,c,b,In,kh,kw, stride,Aux);
         tIm2Col += bli_clock() -tIni;
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,kn,ho*wo*b,kh*kw*c,&ONE,F,1,kn,Aux,1,kh*kw*c,&ZERO,OutI2c,1,kn);
+        //sgemm_cust(kn,ho*wo*b,kh*kw*c,1,F,kn,Aux,kh*kw*c,0,OutI2c,kn,Ac_pack,Bc_pack);
         tIm2ColGemm += bli_clock() -tIni;
         
         
@@ -186,14 +192,18 @@ int main( int argc, char** argv )
     tIm2ColGemm/=repe;
     tImp/=repe;
     
-
+    perfImp = ( 2.0 * kn*ho*wo*b*kh*kw*c ) / ( tImp * 1.0e9 );
+    perfGemm = ( 2.0 * kn*ho*wo*b*kh*kw*c ) / ( (tIm2ColGemm-tIm2Col) * 1.0e9 );
+    perfPeak = 2.035 * 8 ;// cpuFreq * flopscycle
     
     printf("Convolution Time: %.4g \n",tConv);
-    printf("im2Col + Gemm Time: %.4g [Im2Col: %.4g , Gemm: %.4g] \n",tIm2ColGemm, tIm2Col, tIm2ColGemm -tIm2Col);
-    printf("Implicit Gemm Time: %.4g \n",tImp);
+    printf("im2Col + Gemm Time: %.4g [Im2Col: %.4g , Gemm: %.4g] GFLOPS(gemm): %.5g \n",tIm2ColGemm, tIm2Col, tIm2ColGemm -tIm2Col,perfGemm);
+    printf("Implicit Gemm Time: %.4g GFLOPS: %.5g\n",tImp,perfImp);
+    printf("Peak performance: %g, im2col gemm: %g, implicit gemm: %g\n",perfPeak,perfGemm/perfPeak,perfImp/perfPeak);
+    
     
     printf("norm(OutIm2col-OutImplicit)=%g\n",compareMatrix(kn,ho*wo*b,OutI2c,kn,OutImp,kn));
-
+    printf("norm(OutIm2col-OutNaive)=%g\n",compareMatrix(kn,ho*wo*b,OutI2c,kn,OutConv,kn));
     
     free(In);
     free(F);
@@ -201,4 +211,6 @@ int main( int argc, char** argv )
     free(OutI2c);
     free(OutImp);
     free(Aux);
+    free(Ac_pack);
+    free(Bc_pack);
 }
