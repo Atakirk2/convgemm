@@ -7,17 +7,21 @@ uKOBJS= gemm_ref.o gemm_armv8a_asm_d6x8.o
 
 .PHONY: all clean test comp
 
-all: testIm2Col.x compGEMM.x
-test: testIm2Col.c
+all: testIm2Col.x compGEMM.x convEval.x
+test: testIm2Col.x
 comp: compGEMM.x
+eval: convEval.x
 
 %.o: %.c 
 	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCLUDE)
 	
 gemmConv.o: gemmConv.c $(uKOBJS) gemmConv.h
 	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCLUDE)
+	
+convCommon.o: convCommon.c convCommon.h
+	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCLUDE)
 
-%.x: %.o gemmConv.o 
+%.x: %.o gemmConv.o convCommon.o 
 	$(CC) -o $@ $^ $(uKOBJS) $(CFLAGS) $(LIB)
 
 clean:
