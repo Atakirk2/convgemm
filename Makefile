@@ -1,6 +1,6 @@
 INCLUDE=/home/jetsonuser/libs/include/blis/
 CC=gcc
-CFLAGS= -Wl,-rpath,/home/jetsonuser/libs/lib/ $(COPTFLAGS)
+CFLAGS= -Wl,-rpath,/home/jetsonuser/libs/lib/ $(COPTFLAGS) $(OPTS)
 COPTFLAGS= -O3 -ftree-vectorize -mtune=cortex-a57 -march=armv8-a+fp+simd -mcpu=cortex-a57 -funsafe-math-optimizations -ffp-contract=fast -fopt-info-vec-optimized=vecOpt.out
 LIB= -lblis -lm
 uKOBJS= gemm_ref.o gemm_armv8a_asm_d6x8.o

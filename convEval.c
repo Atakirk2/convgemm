@@ -103,8 +103,10 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
 
 					//Timing naive convolution
 					tIni = bli_clock();
+#ifndef NONAIVE
 					convolutionNaive(ho,wo,c,b,In,kh,kw,kn,F,Out, stride);
-					tConv[l+j*(nL+2)] += bli_clock() - tIni;
+#endif
+                    tConv[l+j*(nL+2)] += bli_clock() - tIni;
 
 					//Timing im2col +gemm
 					tIni = bli_clock();
@@ -233,7 +235,7 @@ void genOutput(const int nL, int ** model, double** perfMeasures,const int minBa
 				printf("%d    \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g    \t %.4g    \t %.5g\n",
 				       id,perfMeasures[0][l+j*(nL+2)],perfMeasures[1][l+j*(nL+2)],
 					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)],
-					   gflop / perfMeasures[2][l+j*(nL+2)],perfMeasures[2][l+j*(nL+2)],
+					   gflop / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),perfMeasures[2][l+j*(nL+2)],
 					   perfMeasures[3][l+j*(nL+2)], gflop/perfMeasures[3][l+j*(nL+2)]);
 			
 		}
@@ -241,13 +243,13 @@ void genOutput(const int nL, int ** model, double** perfMeasures,const int minBa
 		printf("Tot \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g    \t %.4g    \t %.5g\n",
 				       perfMeasures[0][l+j*(nL+2)],perfMeasures[1][l+j*(nL+2)],
 					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)],
-					   gflopTotal / perfMeasures[2][l+j*(nL+2)],perfMeasures[2][l+j*(nL+2)],
+					   gflopTotal / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),perfMeasures[2][l+j*(nL+2)],
 					   perfMeasures[3][l+j*(nL+2)], gflopTotal /perfMeasures[3][l+j*(nL+2)]);
 		l++;
 		printf("Avg \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g    \t %.4g    \t %.5g\n",
 				       perfMeasures[0][l+j*(nL+2)],perfMeasures[1][l+j*(nL+2)],
 					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)],
-					   (gflopTotal/nL) / perfMeasures[2][l+j*(nL+2)],perfMeasures[2][l+j*(nL+2)],
+					   (gflopTotal/nL) / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),perfMeasures[2][l+j*(nL+2)],
 					   perfMeasures[3][l+j*(nL+2)], (gflopTotal/nL) /perfMeasures[3][l+j*(nL+2)]);
     }
     
