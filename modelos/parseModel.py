@@ -13,7 +13,7 @@ with open(origin,'r') as f:
         prevLayer = prev.split(';')
         layer = curr.split(';')
         if(layer[1] =="conv"):
-            convLayer =f"{layer[0]};{';'.join(prevLayer[2:5])};{';'.join(layer[5:7])};{layer[4]};{layer[7]};0\n"
+            convLayer =f"{layer[0]};{prevLayer[3]};{prevLayer[2]};{prevLayer[4]};{layer[6]};{layer[5]};{layer[4]};{layer[7]};0\n"
             buff.write(convLayer)
             nL+=1
 
