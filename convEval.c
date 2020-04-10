@@ -63,7 +63,11 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
     Ac_pack = (float*) aligned_alloc(4096,BLOCK_MC*BLOCK_KC*sizeof(float));
     Bc_pack = (float*) aligned_alloc(4096,BLOCK_KC*BLOCK_NC*sizeof(float));
     Aux = (float*) malloc(maxSizeAux * sizeof(float));
-	
+    if(Aux == NULL || Ac_pack == NULL || Bc_pack == NULL)
+    {
+        perror("Error allocating auxiliar matrices:");
+        exit(2);
+    }
 	
     bli_srandv(maxSizeF,F,1);
     bli_srandv(maxSizeIn,In,1);
@@ -100,7 +104,9 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
 					stride = model[l][7]; pad = model[l][8];
 					ho = floor((h - kh + 2 * pad) / stride + 1);
 					wo = floor((w - kw + 2 * pad) / stride + 1);
-
+                    
+                    bli_scopyv(BLIS_NO_CONJUGATE,ho*wo*c*b,Aux,1,In,1);//Copy to force cache clearing
+                    
 					//Timing naive convolution
 					tIni = bli_clock();
 #ifndef NONAIVE
@@ -108,6 +114,10 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
 #endif
                     tConv[l+j*(nL+2)] += bli_clock() - tIni;
 
+                    bli_scopyv(BLIS_NO_CONJUGATE,kn*ho*wo*b,Out,1,Aux,1);//Copy to force cache clearing
+                    
+                    bli_scopyv(BLIS_NO_CONJUGATE,ho*wo*c*b,Aux,1,In,1);//Copy to force cache clearing
+                    
 					//Timing im2col +gemm
 					tIni = bli_clock();
 					im2Col (ho,wo,c,b,In,kh,kw, stride,Aux);
@@ -116,12 +126,16 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
 					sgemm_cust(kn,ho*wo*b,kh*kw*c,1,F,kn,Aux,kh*kw*c,0,Out,kn,Ac_pack,Bc_pack);
 					tIm2ColGemm[l+j*(nL+2)] += bli_clock() -tIni;
 					
+					bli_scopyv(BLIS_NO_CONJUGATE,kn*ho*wo*b,Out,1,Aux,1);//Copy to force cache clearing
 					
-					
+                    bli_scopyv(BLIS_NO_CONJUGATE,ho*wo*c*b,Aux,1,In,1);//Copy to force cache clearing
+                    
 					//Timing implicint gemm
 					tIni = bli_clock();
 					sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, In, 0,Out,Ac_pack,Bc_pack);
 					tImp[l+j*(nL+2)] += bli_clock() -tIni;
+                    
+                    bli_scopyv(BLIS_NO_CONJUGATE,kn*ho*wo*b,Out,1,Aux,1);//Copy to force cache clearing
                 }
         }
     
@@ -214,12 +228,11 @@ void genOutput(const int nL, int ** model, double** perfMeasures,const int minBa
 	
 	
     printf("Evaluation results (averaged results of %d repetitions):\n",repe);
-    printf("Execution time batch x layer\n");
     for(b=minBatch,j=0;b<=maxBatch; b+=stepBatch,j++)
     {
         printf("Batch=%d \n",b);
 		gflopTotal=0;
-		printf("layer \t Naive    \t im2col    \t gemm    \t flops    \t im2colgemm \t implicitGemm  \t flops\n");
+		printf("layer \t Naive    \t im2col    \t gemm    \t GflopsGemm    \t im2colgemm   \t GflopsIm2ColGemm  \t implicitGemm  \t GflopsImplicit\n");
         for (l = 0;l < nL; l++)
 		{
 				id = model[l][0];
@@ -232,24 +245,24 @@ void genOutput(const int nL, int ** model, double** perfMeasures,const int minBa
 				gflop = ( 2.0 * kn*ho*wo*b*kh*kw*c ) /  1.0e9 ;
 				gflopTotal+=gflop;
                 
-				printf("%d    \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g    \t %.4g    \t %.5g\n",
+				printf("%d    \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g  \t %.5g         \t %.4g    \t %.5g\n",
 				       id,perfMeasures[0][l+j*(nL+2)],perfMeasures[1][l+j*(nL+2)],
-					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)],
-					   gflop / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),perfMeasures[2][l+j*(nL+2)],
+					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)], gflop / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),
+                       perfMeasures[2][l+j*(nL+2)], gflop/perfMeasures[2][l+j*(nL+2)],
 					   perfMeasures[3][l+j*(nL+2)], gflop/perfMeasures[3][l+j*(nL+2)]);
 			
 		}
 		
-		printf("Tot \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g    \t %.4g    \t %.5g\n",
+		printf("Tot \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g  \t %.5g           \t %.4g    \t %.5g\n",
 				       perfMeasures[0][l+j*(nL+2)],perfMeasures[1][l+j*(nL+2)],
-					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)],
-					   gflopTotal / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),perfMeasures[2][l+j*(nL+2)],
+					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)], gflopTotal / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),
+                       perfMeasures[2][l+j*(nL+2)], gflopTotal /perfMeasures[2][l+j*(nL+2)],
 					   perfMeasures[3][l+j*(nL+2)], gflopTotal /perfMeasures[3][l+j*(nL+2)]);
 		l++;
-		printf("Avg \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g    \t %.4g    \t %.5g\n",
+		printf("Avg \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g   \t %.5g          \t %.4g    \t %.5g\n",
 				       perfMeasures[0][l+j*(nL+2)],perfMeasures[1][l+j*(nL+2)],
-					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)],
-					   (gflopTotal/nL) / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),perfMeasures[2][l+j*(nL+2)],
+					   perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)], (gflopTotal/nL) / (perfMeasures[2][l+j*(nL+2)]-perfMeasures[1][l+j*(nL+2)]),
+                       perfMeasures[2][l+j*(nL+2)], (gflopTotal/nL) /perfMeasures[2][l+j*(nL+2)],
 					   perfMeasures[3][l+j*(nL+2)], (gflopTotal/nL) /perfMeasures[3][l+j*(nL+2)]);
     }
     
