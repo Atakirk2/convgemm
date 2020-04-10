@@ -27,38 +27,60 @@ void convolutionNaive(const int h, const int w, const int c,const int b,const fl
 
 void im2Col(const int h, const int w, const int c, const int b,const float* In, const int kh, const int kw, const int stride,float* Out)
 {
-   /*     cdef int c, ii, jj, row, yy, xx, i, col
-
-    #for c in range(C):
-    for c in prange(C, nogil=True):
-        for ii in range(field_height):
-            for jj in range(field_width):
-                row = c * field_width * field_height + ii * field_height + jj
-                for yy in range(HH):
-                    for xx in range(WW):
-                        for i in range(N):
-                            col = yy * WW * N + xx * N + i
-                            cols[row, col] = x_padded[i, c, stride * yy + ii, stride * xx + jj]*/
-   int ic, ikh, ikw, ih, iw, ib,
-       row,col;
+    int ic, ikh, ikw, ih, iw, ib,
+        row,col;
    
+    unsigned int cSize = h*w, //chanel memory leap
+                 kSize = kh*kw, //kernel memory leap (single chanel)
+                 bSize = c*h*w, //batch memory leap
+                 ckSize = c * kSize, //kernels memory leap (all channels)
+                 posib,
+                 posic,
+                 posiw,
+                 posih,
+                 posikw,
+                 rowic,
+                 rowikw,
+                 colib,
+                 coliw;
     
     for(ib = 0;ib < b; ib++)    
-       for( ic = 0; ic < c; ic++)
-            for(iw = 0; iw < w; iw++)                
+    {
+        colib = ib * cSize;
+        posib = ib * bSize;
+        for( ic = 0; ic < c; ic++)
+        {
+            rowic = ic *kSize;
+            posic = ic * cSize + posib;
+            for(iw = 0; iw < w; iw++)   
+            {
+                coliw = colib + iw * h;
+                posiw = iw * stride * h + posic;
                 for(ih = 0; ih < h; ih++)
                 {
-                    col = ib *w * h + iw * h + ih;
+                     //col = ib * cSize + iw * h + ih;
+                    col = coliw + ih;
+                    posih = stride * ih;
                     for(ikw = 0; ikw < kw; ikw++)
+                    {
+                        rowikw = rowic + ikw * kh;
+                        posikw = posiw + ikw * h;
                         for(ikh = 0; ikh < kh; ikh++)
                         {
-                            row = ic *kw*kh + ikw * kh + ikh; 
+                             //row = ic *kSize + ikw * kh + ikh; 
+                            row = rowikw + ikh;
                             //printf("Writing into Out[%d,%d] from In[%d,%d,%d,%d]\n",
                               //    row,col,ib,ic, (iw * stride + ikw),(stride * ih + ikh));
-                            Out[row + col * c*kw*kh] = In[ib * c*h*w + ic * h*w +
-                                                        (iw * stride + ikw) * h + (stride * ih + ikh)];
+                            //OPT Out[row + col * ckSize] = In[ib * bSize + ic * cSize + (iw * stride + ikw) * h + (stride * ih + ikh)];
+                            //OPT Out[row + col * ckSize] = In[posib + posic + posikw + posih + ikh];
+                            Out[row + col * ckSize] = In[posikw + posih + ikh];
+
                         }
-                }         
+                    }
+                }   
+            }
+        }
+    }
 }
 
 void padMatrix()
