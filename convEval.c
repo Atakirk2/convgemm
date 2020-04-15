@@ -9,6 +9,13 @@
 #define GEMM 2
 #define IMPLICIT_GEMM 3
 
+//typedef dualBuffer;
+struct dualBuffer{
+    float * buff;
+    struct dualBuffer* partner; 
+    
+};
+
 void maxMatrixSizes(int** model,const int nL, const int maxBatch, int* maxSizeF, int* maxSizeIn, int* maxSizeOut, int* maxSizeAux)
 {
     int l,
@@ -39,7 +46,7 @@ void maxMatrixSizes(int** model,const int nL, const int maxBatch, int* maxSizeF,
     
 }
 
-void inline timeNet(const int algorithm, int ** model, const int nL, const int repe, const int b, const int j,  float* F,  float* In,  float* Out,  float* Ac_pack,  float* Bc_pack,  float* Aux,  double* timer)
+void inline timeNet(const int algorithm, int ** model, const int nL, const int repe, const int b, const int j,  float* F, struct dualBuffer* inOut,  float* Ac_pack,  float* Bc_pack,  float* Aux,  double* timer)
 {
     double tIni;
     int r,l; //loop indexes 
@@ -66,16 +73,19 @@ void inline timeNet(const int algorithm, int ** model, const int nL, const int r
                     switch(algorithm)
                     {
                         case CONV:
-                            convolutionNaive(ho,wo,c,b,In,kh,kw,kn,F,Out, stride);
+                            convolutionNaive(ho,wo,c,b,inOut->buff,kh,kw,kn,F,inOut->partner->buff, stride);
+                            inOut = inOut->partner;
                             break;
                         case IM2COL_GEMM:
-                            im2Col(ho,wo,c,b,In,kh,kw, stride,Aux);
+                            im2Col(ho,wo,c,b,inOut->buff,kh,kw, stride,Aux);
                         case GEMM:
                             //bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,kn,ho*wo*b,kh*kw*c,&ONE,F,1,kn,Aux,1,kh*kw*c,&ZERO,Out,1,kn);
-                            sgemm_cust(kn,ho*wo*b,kh*kw*c,1,F,kn,Aux,kh*kw*c,0,Out,kn,Ac_pack,Bc_pack);
+                            sgemm_cust(kn,ho*wo*b,kh*kw*c,1,F,kn,Aux,kh*kw*c,0,inOut->partner->buff,kn,Ac_pack,Bc_pack);
+                            inOut = inOut->partner;
                             break;
                         case IMPLICIT_GEMM:
-                            sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, In, 0,Out,Ac_pack,Bc_pack);
+                            sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, inOut->buff, 0,inOut->partner->buff,Ac_pack,Bc_pack);
+                            inOut = inOut->partner;
                             break;
                     }
 #ifdef LAYER_EVAL
@@ -98,7 +108,9 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
      	maxSizeF, maxSizeIn, maxSizeOut, maxSizeAux;
     int numBatch, timers=5;
     int h, w, c, b, kh, kw, kn, stride, pad, ho, wo;//convolution parameters
-    float *F, *In, *Out, *Ac_pack, *Bc_pack, *Aux;
+    float *F, *Ac_pack, *Bc_pack, *Aux;
+    struct dualBuffer inOut;
+    
 	float ONE=1, ZERO=0;
 	
 	printf("Starting evaluation\n");
@@ -106,10 +118,13 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
     //Allocating matrices
     maxMatrixSizes(model, nL, maxBatch, &maxSizeF, &maxSizeIn,&maxSizeOut, &maxSizeAux);
 
+    //Input and output matrices
     F = (float*) malloc(maxSizeF * sizeof(float));
-    In = (float*) malloc(maxSizeIn * sizeof(float));
-    Out = (float*) malloc(maxSizeOut * sizeof(float));
-    if(F == NULL || In == NULL || Out == NULL)
+    inOut.buff = (float*) malloc(max(maxSizeOut,maxSizeIn) * sizeof(float));
+    inOut.partner = (struct dualBuffer *) malloc(sizeof(struct dualBuffer));
+    inOut.partner->buff = (float*) malloc(max(maxSizeOut,maxSizeIn) * sizeof(float));
+    inOut.partner->partner = &inOut;
+    if(F == NULL || inOut.buff == NULL || inOut.partner->buff == NULL)
     {
         perror("Error allocating matrices:");
         exit(2);
@@ -125,7 +140,7 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
     }
 	
     bli_srandv(maxSizeF,F,1);
-    bli_srandv(maxSizeIn,In,1);
+    bli_srandv(maxSizeIn,inOut.buff,1);
 
     
     numBatch = (maxBatch -minBatch)/stepBatch+1;
@@ -155,20 +170,23 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
         printf("Evaluation with batch=%d\n",b);
 
 #ifndef NONAIVE  
-                timeNet(CONV, model, nL, repe, b, j, F, In, Out, Ac_pack, Bc_pack, Aux,  tConv);
+        timeNet(CONV, model, nL, repe, b, j, F, &inOut, Ac_pack, Bc_pack, Aux,  tConv);
 #endif
-                timeNet(GEMM, model, nL, repe, b, j, F, In, Out, Ac_pack, Bc_pack, Aux,  tGemm);
-                
-                timeNet(IM2COL_GEMM, model, nL, repe, b, j, F, In, Out, Ac_pack, Bc_pack, Aux,  tIm2ColGemm);
-
-                timeNet(IMPLICIT_GEMM, model, nL, repe, b, j, F, In, Out, Ac_pack, Bc_pack, Aux,  tImp);
+        timeNet(GEMM, model, nL, repe, b, j, F,  &inOut, Ac_pack, Bc_pack, Aux,  tGemm);
         
+        timeNet(IM2COL_GEMM, model, nL, repe, b, j, F, &inOut, Ac_pack, Bc_pack, Aux,  tIm2ColGemm);
+        
+        timeNet(IMPLICIT_GEMM, model, nL, repe, b, j, F, &inOut, Ac_pack, Bc_pack, Aux,  tImp);
+        
+
 #ifdef LAYER_EVAL   
 		//Timing averaging and statistics
         for(l=0; l < nL;l++)
+        {
+            tIm2Col[l+j*(nL+2)] =  tIm2ColGemm[l+j*(nL+2)] -  tGemm[l+j*(nL+2)];//Compute im2col times
             for(i = 0; i < timers; i++)
                 times[i][l+j*(nL+2)] /= repe;
-
+        }
 
         for(i = 0; i < timers; i++)
         {
@@ -177,6 +195,7 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
             times[i][nL+1+j*(nL+2)]= sum/nL;
         }
 #else
+        tIm2Col[nL+j*(nL+2)] =  tIm2ColGemm[nL+j*(nL+2)] -  tGemm[nL+j*(nL+2)]; //Compute im2col time
         for(i = 0; i < timers; i++)
         {
             times[i][nL+j*(nL+2)] /= repe;
@@ -186,8 +205,12 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
     }
     
     free(F);
-    free(In);
-    free(Out);
+    free(inOut.buff);
+    free(inOut.partner->buff);
+    free(inOut.partner);
+    free(Ac_pack);
+    free(Bc_pack);
+    free(Aux);
     
     return times;
 }
@@ -253,6 +276,7 @@ void genOutput(const int nL, int ** model, double** perfMeasures,const int minBa
         printf("Batch=%d \n",b);
 		gflopTotal=0;
 		printf("layer \t Naive    \t im2col    \t gemm    \t GflopsGemm    \t im2colgemm   \t GflopsIm2ColGemm  \t implicitGemm  \t GflopsImplicit\n");
+
         for (l = 0;l < nL; l++)
 		{
 				id = model[l][0];
@@ -264,15 +288,17 @@ void genOutput(const int nL, int ** model, double** perfMeasures,const int minBa
 				
 				gflop = ( 2.0 * kn*ho*wo*b*kh*kw*c ) /  1.0e9 ;
 				gflopTotal+=gflop;
-                
+#ifdef LAYER_EVAL  
 				printf("%d    \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g  \t %.5g         \t %.4g    \t %.5g\n",
 				       id,perfMeasures[0][l+j*(nL+2)],perfMeasures[1][l+j*(nL+2)],
 					   perfMeasures[2][l+j*(nL+2)], gflop / perfMeasures[2][l+j*(nL+2)],
                        perfMeasures[3][l+j*(nL+2)], gflop/perfMeasures[3][l+j*(nL+2)],
 					   perfMeasures[4][l+j*(nL+2)], gflop/perfMeasures[4][l+j*(nL+2)]);
+#endif	
 			
 		}
-		
+
+	
 		printf("Tot \t %.4g    \t %.4g    \t %.4g    \t %.5g    \t %.4g  \t %.5g           \t %.4g    \t %.5g\n",
 				       perfMeasures[0][l+j*(nL+2)],perfMeasures[1][l+j*(nL+2)],
 					   perfMeasures[2][l+j*(nL+2)], gflopTotal / perfMeasures[2][l+j*(nL+2)],
