@@ -51,7 +51,7 @@ void inline timeNet(const int algorithm, int ** model, const int nL, const int r
     double tIni;
     int r,l; //loop indexes 
     int h, w, c, kh, kw, kn, stride, pad, ho, wo;//convolution parameters
-    
+    float ONE=1, ZERO=0;
     
 //Evaluating algorithm
 #ifndef LAYER_EVAL 
@@ -79,7 +79,7 @@ void inline timeNet(const int algorithm, int ** model, const int nL, const int r
                         case IM2COL_GEMM:
                             im2Col(ho,wo,c,b,inOut->buff,kh,kw, stride,Aux);
                         case GEMM:
-                            //bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,kn,ho*wo*b,kh*kw*c,&ONE,F,1,kn,Aux,1,kh*kw*c,&ZERO,Out,1,kn);
+                            //bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,kn,ho*wo*b,kh*kw*c,&ONE,F,1,kn,Aux,1,kh*kw*c,&ZERO,inOut->partner->buff,1,kn);
                             sgemm_cust(kn,ho*wo*b,kh*kw*c,1,F,kn,Aux,kh*kw*c,0,inOut->partner->buff,kn,Ac_pack,Bc_pack);
                             inOut = inOut->partner;
                             break;
@@ -104,14 +104,12 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
 {
     double **times, tIni, *tConv, *tIm2Col, *tGemm, *tIm2ColGemm, *tImp; //Timing vectors
     double sum;
-    int i, j,r,l, //loop indexes
-     	maxSizeF, maxSizeIn, maxSizeOut, maxSizeAux;
+    int i, j,r,l, b, //loop indexes
+     	maxSizeF, maxSizeIn, maxSizeOut, maxSizeAux;//matrixz max sizes
     int numBatch, timers=5;
-    int h, w, c, b, kh, kw, kn, stride, pad, ho, wo;//convolution parameters
     float *F, *Ac_pack, *Bc_pack, *Aux;
     struct dualBuffer inOut;
     
-	float ONE=1, ZERO=0;
 	
 	printf("Starting evaluation\n");
     
@@ -162,8 +160,6 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
 	times[3] = tIm2ColGemm;
 	times[4] = tImp;
 
-    //bli_scopyv(BLIS_NO_CONJUGATE,ho*wo*c*b,Aux,1,In,1);//Copy to force cache clearing
-    //bli_scopyv(BLIS_NO_CONJUGATE,kn*ho*wo*b,Out,1,Aux,1);//Copy to force cache clearing
     
     for(b=minBatch,j=0;b<=maxBatch; b+=stepBatch,j++)
     {

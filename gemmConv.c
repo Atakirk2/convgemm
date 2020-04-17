@@ -173,7 +173,7 @@ void sPack_A(float *A, unsigned int lda, float *A_pack, unsigned int m, unsigned
 	//	#pragma omp parallel
 	//	#pragma omp single
 //		#pragma omp taskloop private(A_pack_local) num_tasks((*n_threads))
-//		#pragma omp  parallel for num_threads(*n_threads) private(A_pack_local)
+		#pragma omp  parallel for private(A_pack_local)
 	for(unsigned int ic=0;ic<m;ic+=BLOCK_MR){
 
 		A_pack_local=&A_pack[ic*k];
@@ -198,7 +198,7 @@ void sPack_B(float *B, unsigned int ldb, float *B_pack, unsigned int k, unsigned
 	//	#pragma omp parallel
 	//	#pragma omp single
 //		#pragma omp taskloop private(B_pack_local) num_tasks((*n_threads))
-		////#pragma omp parallel for num_threads(*n_threads) private(B_pack_local)
+		#pragma omp parallel for private(B_pack_local)
 	for(unsigned int jc=0;jc<n;jc+=BLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
@@ -272,7 +272,7 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 				//printf("jr %d\n", *jr_threads_nt);
 				// #pragma omp parallel num_threads(*jr_threads_nt)
 				//#pragma omp taskloop private(Ar, Br, Cr) num_tasks((*jr_threads_nt))
-			////		#pragma omp  parallel for num_threads(*jr_threads_nt) private(Ar, Br, Cr)
+				#pragma omp  parallel for private(Ar, Br, Cr)
 				for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR){
 					//printf("soy %d/%d\n", omp_get_thread_num(), *jr_threads_nt);
 					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
@@ -306,7 +306,7 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * res
 
 {
     unsigned int ic,ikw,ikh, //Row related indexes (regarding the phantom matrix)
-                 ib,iw,ih, //Col related indexes (regarding the phantom matrix)
+                 j_local, ib,iw,ih, //Col related indexes (regarding the phantom matrix)
                  pos, pos_ic, pos_ib, pos_ic_ikw; //position on the original image
     unsigned int pos_ic_ini,ikw_ini,ikh_ini,pos_ib_ini,iw_ini,ih_ini; //Initial values of indexes
     
@@ -320,21 +320,25 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * res
     ic = i/kSize;
     ikw_ini = (i%kSize)/kh;
     ikh_ini = (i%kSize)%kh;
-
-    ib = j/(cSize);
-    iw_ini = (j%(cSize))/h;
-    ih_ini = (j%(cSize))%h;
-    
     pos_ic_ini = ic * cSize;
-    pos_ib_ini = ib * bSize;
-    
 
 
+
+    #pragma omp parallel for private(B_pack_local, j_local,pc,jr,ib,ih_ini, iw_ini, pos_ib_ini,pos_ic,ikw,pos_ic_ikw,ikh,pos_ib,iw,ih,pos) firstprivate(j)
 	for(jc=0;jc<n;jc+=BLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
 		unsigned int n_alg=fmin(BLOCK_NR,n-jc);
         
+        j_local = j +jc;
+        ib = j_local/cSize;
+        iw_ini = (j_local%(cSize))/h;
+        ih_ini = (j_local%(cSize))%h;
+        pos_ib_ini = ib * bSize;
+
+        
+
+        //ih_ini = ih_ini + jc
         
         pos_ic=pos_ic_ini;
         ikw=ikw_ini;
@@ -374,9 +378,9 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * res
 				B_pack_local++;
 			}
 		}
-        ih_ini = ih;
-        iw_ini = iw;
-        pos_ib_ini = pos_ib;
+        //ih_ini = ih;
+        //iw_ini = iw;
+        //pos_ib_ini = pos_ib;
 	}
 }
 
@@ -400,12 +404,10 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
                  k = kh*kw*c;
           
     unsigned int lda= kn,
-                 ldb = kh*kw*c,//TODO error
                  ldc= kn;
     
-
-           
-
+    int num_threads = omp_get_max_threads();
+   
 
 
 	//printf("alda %u blda %u clda %u\n", lda, ldb, ldc);
@@ -426,7 +428,7 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 
 			sPack_im2Col(pc,jc, B, Bc_pack, k_alg, n_alg, b,c,h,w,kh,kw, stride);  //PACK B
 
-			//#pragma omp parallel for num_threads(*ic_threads_nt) private(Ac, Cc, Ar, Br, Cr)
+			//#pragma omp parallel for if(m >= (num_threads * BLOCK_MC))  private(Ac, Cc, Ar, Br, Cr)
 			for (unsigned int ic=0; ic<m; ic+=BLOCK_MC) {
 
 				unsigned int m_alg=fmin(BLOCK_MC,m-ic);
@@ -444,7 +446,7 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 				//printf("jr %d\n", *jr_threads_nt);
 				// #pragma omp parallel num_threads(*jr_threads_nt)
 				//#pragma omp taskloop private(Ar, Br, Cr) num_tasks((*jr_threads_nt))
-			////		#pragma omp  parallel for num_threads(*jr_threads_nt) private(Ar, Br, Cr)
+                #pragma omp parallel for  private(Ar, Br, Cr) //if(m < (num_threads * BLOCK_MC))
 				for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR){
 					//printf("soy %d/%d\n", omp_get_thread_num(), *jr_threads_nt);
 					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
