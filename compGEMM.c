@@ -1,3 +1,13 @@
+/**GEMM comparator
+ * 
+ * This test performs a comparison between BLIS GEMM and the custom GEMM.
+ * The test is performed for ARMCortex  A-57
+ * 
+ * @author P. San Juan
+ * @date 04/2020
+ */
+
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,9 +84,6 @@ int main( int argc, char** argv )
              exit(1);
          }
          
-        // bli_dprintm( "Cblis:", m, n, CBlis, 1, m, "%4.1f", "" );
-
-        // bli_dprintm( "Resta:", m, n, COwn, 1, m, "%4.1f", "" );
 #endif
     }
     
@@ -96,17 +103,21 @@ int main( int argc, char** argv )
     free(COwn);
     
 }
-int print_matrix( char *name, int m, int n, double *A, int Alda )
-{
-/*
- * Print a matrix to standard output
- * name   : Label for matrix name
- * m      : Row dimension
- * n      : Column dimension
- * A      : Matrix
- * Alda   : Leading dimension
+
+
+/**
+ * Print a matrix to standard output.
+ * 
+ * @param[in] name Label for matrix name
+ * @param[in] m Row dimension
+ * @param[in] n Column dimension
+ * @param[in] A Matrix
+ * @param[in] Alda Leading dimension
  *
  */
+int print_matrix( char *name, int m, int n, double *A, int Alda )
+{
+
   int i, j;
 
   for ( j=1; j<=n; j++ )

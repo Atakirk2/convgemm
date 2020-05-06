@@ -1,4 +1,7 @@
-
+/**
+ * This microkernel was developed by the authors of:
+ *  https://doi.org/10.1007/s10586-019-02927-z
+ */
 
 void dgemm_ref( int k, int mr_alg, int nr_alg, double* restrict alpha, double* restrict a, double* restrict b, double* restrict beta, double* restrict c, int rs_c, int cs_c)
 {

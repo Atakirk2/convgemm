@@ -1,8 +1,26 @@
+/**Convolution tester
+ * 
+ * This test compares the naive convolution  with the imtocol + gemm and the convGemm approaches.
+ * The test is performed for ARMCortex  A-57
+ * 
+ * @author P. San Juan
+ * @date 04/2020
+ */
+
 #include "convCommon.h"
 #include "gemmConv.h"
 
 
-
+/** Compares two matrices and returns the difference between them.
+ * 
+ * @param m Rows of matrices.
+ * @param n Cols of matrices.
+ * @param M First matrix.
+ * @param ldm Leading dimension of M. 
+ * @param M2 Second matrix.
+ * @param ldm2 Leading dimension of M2.
+ * @return  |N-M2|_F/|M2|_F
+ * */
 float compareMatrix(const int m,const int n, float* M, const int ldm, float* M2, const int ldm2){
     
 
