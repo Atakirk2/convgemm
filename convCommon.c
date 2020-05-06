@@ -48,6 +48,7 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
     {
         colib = ib * cSize;
         posib = ib * bSize;
+        #pragma omp parallel for private (iw,ih,ikw,ikh,row,col,rowic,posic,coliw,posiw,posih,rowikw,posikw) 
         for( ic = 0; ic < c; ic++)
         {
             rowic = ic *kSize;
@@ -58,7 +59,7 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
                 posiw = iw * stride * h + posic;
                 for(ih = 0; ih < h; ih++)
                 {
-                     //col = ib * cSize + iw * h + ih;
+                     //OPT col = ib * cSize + iw * h + ih;
                     col = coliw + ih;
                     posih = stride * ih;
                     for(ikw = 0; ikw < kw; ikw++)
@@ -67,7 +68,7 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
                         posikw = posiw + ikw * h;
                         for(ikh = 0; ikh < kh; ikh++)
                         {
-                             //row = ic *kSize + ikw * kh + ikh; 
+                             //OPT row = ic *kSize + ikw * kh + ikh; 
                             row = rowikw + ikh;
                             //printf("Writing into Out[%d,%d] from In[%d,%d,%d,%d]\n",
                               //    row,col,ib,ic, (iw * stride + ikw),(stride * ih + ikh));
