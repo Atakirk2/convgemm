@@ -1,0 +1,7 @@
+nConv=5
+id;height;width;channels;kernel_heigth;kernel_width;kernel_num;stride;padding
+2;224;224;3;11;11;64;4;3
+4;55;55;64;5;5;192;1;0
+6;27;27;192;3;3;384;1;0
+7;13;13;384;3;3;384;1;0
+8;13;13;384;3;3;256;1;0
