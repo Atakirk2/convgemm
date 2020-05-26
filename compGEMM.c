@@ -23,17 +23,18 @@
 int main( int argc, char** argv )
 {
     double tBlis, tOwn, tIni,
-            gflopsBlis, gflopsOwn,
-            ONE = 1, ZERO = 0;
+            gflopsBlis, gflopsOwn;
+            
+    float ONE = 1, ZERO = 0;
     
     int i,
         m, n, k, //matrix dimms
         repe;
     
-    double *A, *B, *CBlis, *COwn,
+    float *A, *B, *CBlis, *COwn,
             *Ac_pack, *Bc_pack;
 
-    double norm = 0, normOrig = 0;
+    float norm = 0, normOrig = 0;
     
     if (argc != 5)
     {
@@ -49,34 +50,35 @@ int main( int argc, char** argv )
     k = atoi(argv[3]);
     repe  =atoi(argv[4]);
     
-    A = (double*) malloc(m*k * sizeof(double));
-    B = (double*) malloc(k*n * sizeof(double));
-    CBlis = (double*) malloc(m*n * sizeof(double));
-    COwn = (double*) malloc(m*n * sizeof(double));
+    A = (float*) malloc(m*k * sizeof(float));
+    B = (float*) malloc(k*n * sizeof(float));
+    CBlis = (float*) malloc(m*n * sizeof(float));
+    COwn = (float*) malloc(m*n * sizeof(float));
     
-    posix_memalign(&Ac_pack, 4096, BLOCK_MC*BLOCK_KC*sizeof(double));
-    posix_memalign(&Bc_pack, 4096, BLOCK_KC*BLOCK_NC*sizeof(double));
+    Ac_pack = (float*) aligned_alloc(4096,BLOCK_MC*BLOCK_KC*sizeof(float));
+    Bc_pack = (float*) aligned_alloc(4096,BLOCK_KC*BLOCK_NC*sizeof(float));
     
-    bli_drandm( 0, BLIS_DENSE, m, k, A, 1, m );
-    bli_drandm( 0, BLIS_DENSE, k, n, B, 1, k );
+    
+    bli_srandm( 0, BLIS_DENSE, m, k, A, 1, m );
+    bli_srandm( 0, BLIS_DENSE, k, n, B, 1, k );
 
     for(i = 0; i <  repe; i++)
     {
         //Timing gemm blis
         tIni = bli_clock();
-        bli_dgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&ONE,A,1,m,B,1,k,&ZERO,CBlis,1,m);
+        bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&ONE,A,1,m,B,1,k,&ZERO,CBlis,1,m);
         tBlis += bli_clock() - tIni;
         
         //Timing custom gemm 
         tIni = bli_clock();
-        dgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack);
+        sgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack);
         tOwn += bli_clock() -tIni;
         
                 
 #ifdef COMPARE
-         bli_dnormfv(m*n,COwn,1,&normOrig);
-         bli_dsubm(0,BLIS_NONUNIT_DIAG,BLIS_DENSE,BLIS_NO_TRANSPOSE,m,n,CBlis,1,m,COwn,1,m);
-         bli_dnormfv(m*n,COwn,1,&norm);
+         bli_snormfv(m*n,COwn,1,&normOrig);
+         bli_ssubm(0,BLIS_NONUNIT_DIAG,BLIS_DENSE,BLIS_NO_TRANSPOSE,m,n,CBlis,1,m,COwn,1,m);
+         bli_snormfv(m*n,COwn,1,&norm);
          printf("Approximation error: %g\n",norm/normOrig);
          if (norm > EPS)
          {
@@ -115,7 +117,7 @@ int main( int argc, char** argv )
  * @param[in] Alda Leading dimension
  *
  */
-int print_matrix( char *name, int m, int n, double *A, int Alda )
+int print_matrix( char *name, int m, int n, float *A, int Alda )
 {
 
   int i, j;
