@@ -504,12 +504,15 @@ __asm__ volatile
 " fcmp s7,#0.0                               \n\t"
 " beq .SBETAZEROCOLSTOREDS1                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
-" ldr q0, [x2]                               \n\t" //Load column 0 of C
+/*" ldr q0, [x2]                               \n\t" //Load column 0 of C
 " ldr q1, [x2, #16]                          \n\t"
 " ldr q2, [x16]                              \n\t" //Load column 1 of C
 " ldr q3, [x16, #16]                         \n\t"
 " ldr q4, [x17]                              \n\t" //Load column 2 of C
-" ldr q5, [x17, #16]                         \n\t"
+" ldr q5, [x17, #16]                         \n\t"*/
+" ld1 {v0.4s,v1.4s}, [x2]                    \n\t" //Load column 0 of C
+" ld1 {v2.4s,v3.4s}, [x16]                   \n\t" //Load column 1 of C
+" ld1 {v4.4s,v5.4s}, [x17]                   \n\t" //Load column 2 of C
 "                                            \n\t"
 " fmul v0.4s,v0.4s,v7.s[0]                   \n\t" // Scale by beta
 " fmul v1.4s,v1.4s,v7.s[0]                   \n\t" // Scale by beta
@@ -527,12 +530,15 @@ __asm__ volatile
 " fmla v4.4s,v12.4s,v6.s[0]                  \n\t" // Scale by alpha
 " fmla v5.4s,v13.4s,v6.s[0]                  \n\t" // Scale by alpha
 "                                            \n\t"
-" str q0, [x2]                               \n\t" //Store column 0 of C
+/*" str q0, [x2]                               \n\t" //Store column 0 of C
 " str q1, [x2, #16]                          \n\t"
 " str q2, [x16]                              \n\t" //Store column 1 of C
 " str q3, [x16, #16]                         \n\t"
 " str q4, [x17]                              \n\t" //Store column 2 of C
-" str q5, [x17, #16]                         \n\t"
+" str q5, [x17, #16]                         \n\t"*/
+" st1 {v0.4s,v1.4s}, [x2]                    \n\t" //Store column 0 of C
+" st1 {v2.4s,v3.4s}, [x16]                   \n\t" //Store column 1 of C
+" st1 {v4.4s,v5.4s}, [x17]                   \n\t" //Store column 2 of C
 "                                            \n\t"
 " dup  v8.4s, wzr                            \n\t"
 " dup  v9.4s, wzr                            \n\t"
@@ -540,23 +546,41 @@ __asm__ volatile
 " dup  v11.4s, wzr                           \n\t"
 " dup  v12.4s, wzr                           \n\t"
 " dup  v13.4s, wzr                           \n\t"
+" dup  v0.4s, wzr                            \n\t"
+" dup  v1.4s, wzr                            \n\t"
+" dup  v2.4s, wzr                            \n\t"
+" dup  v3.4s, wzr                            \n\t"
+" dup  v4.4s, wzr                            \n\t"
+" dup  v5.4s, wzr                            \n\t"
 "                                            \n\t"
 " fcmp s7,#0.0                               \n\t"
 " beq .SBETAZEROCOLSTOREDS2                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
-" ldr q8, [x18]                              \n\t" //Load column 3 of C
+/*" ldr q8, [x18]                              \n\t" //Load column 3 of C
 " ldr q9, [x18, #16]                         \n\t"
 " ldr q10, [x19]                             \n\t" //Load column 4 of C
 " ldr q11, [x19, #16]                        \n\t"
 " ldr q12, [x20]                             \n\t" //Load column 5 of C
-" ldr q13, [x20, #16]                        \n\t"
+" ldr q13, [x20, #16]                        \n\t"*/
+" ld1 {v8.4s,v9.4s}, [x18]                    \n\t" //Load column 3 of C
+" ld1 {v10.4s,v11.4s}, [x19]                   \n\t" //Load column 4 of C
+" ld1 {v12.4s,v13.4s}, [x20]                   \n\t" //Load column 5 of C
+" ld1 {v0.4s,v1.4s}, [x21]                    \n\t" //Load column 6 of C
+" ld1 {v2.4s,v3.4s}, [x22]                   \n\t" //Load column 7 of C
 "                                            \n\t"
 " fmul v8.4s, v8.4s, v7.s[0]                 \n\t" // Scale by beta
 " fmul v9.4s, v9.4s, v7.s[0]                 \n\t" // Scale by beta
+" ld1 {v4.4s,v5.4s}, [x23]                   \n\t" //Load column 8 of C
 " fmul v10.4s,v10.4s,v7.s[0]                 \n\t" // Scale by beta
 " fmul v11.4s,v11.4s,v7.s[0]                 \n\t" // Scale by beta
 " fmul v12.4s,v12.4s,v7.s[0]                 \n\t" // Scale by beta
 " fmul v13.4s,v13.4s,v7.s[0]                 \n\t" // Scale by beta
+" fmul v0.4s,v0.4s,v7.s[0]                   \n\t" // Scale by beta
+" fmul v1.4s,v1.4s,v7.s[0]                   \n\t" // Scale by beta
+" fmul v2.4s,v2.4s,v7.s[0]                   \n\t" // Scale by beta
+" fmul v3.4s,v3.4s,v7.s[0]                   \n\t" // Scale by beta
+" fmul v4.4s,v4.4s,v7.s[0]                   \n\t" // Scale by beta
+" fmul v5.4s,v5.4s,v7.s[0]                   \n\t" // Scale by beta
 "                                            \n\t"
 " .SBETAZEROCOLSTOREDS2:                     \n\t"
 "                                            \n\t"
@@ -566,40 +590,6 @@ __asm__ volatile
 " fmla v11.4s,v17.4s,v6.s[0]                 \n\t" // Scale by alpha
 " fmla v12.4s,v18.4s,v6.s[0]                 \n\t" // Scale by alpha
 " fmla v13.4s,v19.4s,v6.s[0]                 \n\t" // Scale by alpha
-"                                            \n\t"
-" str q8, [x18]                              \n\t" //Store column 3 of C
-" str q9, [x18, #16]                         \n\t"
-" str q10, [x19]                             \n\t" //Store column 4 of C
-" str q11, [x19, #16]                        \n\t"
-" str q12, [x20]                             \n\t" //Store column 5 of C
-" str q13, [x20, #16]                        \n\t"
-"                                            \n\t"
-" dup  v0.4s, wzr                            \n\t"
-" dup  v1.4s, wzr                            \n\t"
-" dup  v2.4s, wzr                            \n\t"
-" dup  v3.4s, wzr                            \n\t"
-" dup  v4.4s, wzr                            \n\t"
-" dup  v5.4s, wzr                            \n\t"
-"                                            \n\t"
-" fcmp s7,#0.0                               \n\t"
-" beq .SBETAZEROCOLSTOREDS3                  \n\t" // Taking care of the beta==0 case.
-"                                            \n\t"
-" ldr q0, [x21]                              \n\t" //Load column 6 of C
-" ldr q1, [x21, #16]                         \n\t"
-" ldr q2, [x22]                              \n\t" //Load column 7 of C
-" ldr q3, [x22, #16]                         \n\t"
-" ldr q4, [x23]                              \n\t" //Load column 8 of C
-" ldr q5, [x23, #16]                         \n\t"
-"                                            \n\t"
-" fmul v0.4s,v0.4s,v7.s[0]                   \n\t" // Scale by beta
-" fmul v1.4s,v1.4s,v7.s[0]                   \n\t" // Scale by beta
-" fmul v2.4s,v2.4s,v7.s[0]                   \n\t" // Scale by beta
-" fmul v3.4s,v3.4s,v7.s[0]                   \n\t" // Scale by beta
-" fmul v4.4s,v4.4s,v7.s[0]                   \n\t" // Scale by beta
-" fmul v5.4s,v5.4s,v7.s[0]                   \n\t" // Scale by beta
-"                                            \n\t"
-" .SBETAZEROCOLSTOREDS3:                     \n\t"
-"                                            \n\t"
 " fmla v0.4s,v20.4s,v6.s[0]                  \n\t" // Scale by alpha
 " fmla v1.4s,v21.4s,v6.s[0]                  \n\t" // Scale by alpha
 " fmla v2.4s,v22.4s,v6.s[0]                  \n\t" // Scale by alpha
@@ -607,55 +597,67 @@ __asm__ volatile
 " fmla v4.4s,v24.4s,v6.s[0]                  \n\t" // Scale by alpha
 " fmla v5.4s,v25.4s,v6.s[0]                  \n\t" // Scale by alpha
 "                                            \n\t"
-" str q0, [x21]                              \n\t" //Store column 6 of C
-" str q1, [x21, #16]                         \n\t"
-" str q2, [x22]                              \n\t" //Store column 7 of C
-" str q3, [x22, #16]                         \n\t"
-" str q4, [x23]                              \n\t" //Store column 8 of C
-" str q5, [x23, #16]                         \n\t"
+/*" str q8, [x18]                              \n\t" //Store column 3 of C
+" str q9, [x18, #16]                         \n\t"
+" str q10, [x19]                             \n\t" //Store column 4 of C
+" str q11, [x19, #16]                        \n\t"
+" str q12, [x20]                             \n\t" //Store column 5 of C
+" str q13, [x20, #16]                        \n\t"*/
+" st1 {v8.4s,v9.4s}, [x18]                    \n\t" //Store column 3 of C
+" st1 {v10.4s,v11.4s}, [x19]                   \n\t" //Store column 4 of C
+" st1 {v12.4s,v13.4s}, [x20]                   \n\t" //Store column 5 of C
+" st1 {v0.4s,v1.4s}, [x21]                    \n\t" //Store column 6 of C
+" st1 {v2.4s,v3.4s}, [x22]                   \n\t" //Store column 7 of C
+" st1 {v4.4s,v5.4s}, [x23]                   \n\t" //Store column 8 of C
 "                                            \n\t"
-" dup  v8.4s, wzr                            \n\t"
-" dup  v9.4s, wzr                            \n\t"
-" dup  v10.4s, wzr                            \n\t"
-" dup  v11.4s, wzr                            \n\t"
-" dup  v12.4s, wzr                            \n\t"
-" dup  v13.4s, wzr                            \n\t"
+" dup  v14.4s, wzr                            \n\t"
+" dup  v15.4s, wzr                            \n\t"
+" dup  v16.4s, wzr                            \n\t"
+" dup  v17.4s, wzr                            \n\t"
+" dup  v18.4s, wzr                            \n\t"
+" dup  v19.4s, wzr                            \n\t"
 "                                            \n\t"
 " fcmp s7,#0.0                               \n\t"
 " beq .SBETAZEROCOLSTOREDS4                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
-" ldr q8, [x24]                              \n\t" //Load column 9 of C
+/*" ldr q8, [x24]                              \n\t" //Load column 9 of C
 " ldr q9, [x24, #16]                         \n\t"
 " ldr q10, [x25]                             \n\t" //Load column 10 of C
 " ldr q11, [x25, #16]                        \n\t"
 " ldr q12, [x26]                             \n\t" //Load column 11 of C
-" ldr q13, [x26, #16]                        \n\t"
+" ldr q13, [x26, #16]                        \n\t"*/
+" ld1 {v14.4s,v15.4s}, [x24]                    \n\t" //Load column 9 of C
+" ld1 {v16.4s,v17.4s}, [x25]                   \n\t" //Load column 10 of C
+" ld1 {v18.4s,v19.4s}, [x26]                   \n\t" //Load column 11 of C
 "                                            \n\t"
-" fmul v8.4s, v8.4s, v7.s[0]                 \n\t" // Scale by beta
-" fmul v9.4s, v9.4s, v7.s[0]                 \n\t" // Scale by beta
-" fmul v10.4s,v10.4s,v7.s[0]                 \n\t" // Scale by beta
-" fmul v11.4s,v11.4s,v7.s[0]                 \n\t" // Scale by beta
-" fmul v12.4s,v12.4s,v7.s[0]                 \n\t" // Scale by beta
-" fmul v13.4s,v13.4s,v7.s[0]                 \n\t" // Scale by beta
+" fmul v14.4s,v14.4s, v7.s[0]                 \n\t" // Scale by beta
+" fmul v15.4s,v15.4s, v7.s[0]                 \n\t" // Scale by beta
+" fmul v16.4s,v16.4s,v7.s[0]                 \n\t" // Scale by beta
+" fmul v17.4s,v17.4s,v7.s[0]                 \n\t" // Scale by beta
+" fmul v18.4s,v18.4s,v7.s[0]                 \n\t" // Scale by beta
+" fmul v19.4s,v19.4s,v7.s[0]                 \n\t" // Scale by beta
 "                                            \n\t"
 " .SBETAZEROCOLSTOREDS4:                     \n\t"
 "                                            \n\t"
 //" prfm pldl2keep,[x3]                        \n\t"
 //" prfm pldl2keep,[x4]                        \n\t"
 "                                            \n\t"
-" fmla v8.4s, v26.4s,v6.s[0]                 \n\t" // Scale by alpha
-" fmla v9.4s, v27.4s,v6.s[0]                 \n\t" // Scale by alpha
-" fmla v10.4s,v28.4s,v6.s[0]                 \n\t" // Scale by alpha
-" fmla v11.4s,v29.4s,v6.s[0]                 \n\t" // Scale by alpha
-" fmla v12.4s,v30.4s,v6.s[0]                 \n\t" // Scale by alpha
-" fmla v13.4s,v31.4s,v6.s[0]                 \n\t" // Scale by alpha
+" fmla v14.4s, v26.4s,v6.s[0]                 \n\t" // Scale by alpha
+" fmla v15.4s, v27.4s,v6.s[0]                 \n\t" // Scale by alpha
+" fmla v16.4s,v28.4s,v6.s[0]                 \n\t" // Scale by alpha
+" fmla v17.4s,v29.4s,v6.s[0]                 \n\t" // Scale by alpha
+" fmla v18.4s,v30.4s,v6.s[0]                 \n\t" // Scale by alpha
+" fmla v19.4s,v31.4s,v6.s[0]                 \n\t" // Scale by alpha
 "                                            \n\t"
-" str q8, [x24]                              \n\t" //Store column 9 of C
+/*" str q8, [x24]                              \n\t" //Store column 9 of C
 " str q9, [x24, #16]                         \n\t"
 " str q10, [x25]                             \n\t" //Store column 10 of C
 " str q11, [x25, #16]                        \n\t"
 " str q12, [x26]                             \n\t" //Store column 11 of C
-" str q13, [x26, #16]                        \n\t"
+" str q13, [x26, #16]                        \n\t"*/
+" st1 {v14.4s,v15.4s}, [x24]                    \n\t" //Store column 6 of C
+" st1 {v16.4s,v17.4s}, [x25]                   \n\t" //Store column 7 of C
+" st1 {v18.4s,v19.4s}, [x26]                   \n\t" //Store column 8 of C
 "                                            \n\t"
 "                                            \n\t"
 " b .SEND                                    \n\t" // Done (TODO: this obviously needs to be moved down to remove jump).
