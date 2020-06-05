@@ -306,7 +306,9 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 
 						if(mr_alg==BLOCK_MR && nr_alg==BLOCK_NR)
 						{
-                            sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                            //sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                            sgemm_armv8a_asm_8x12_v2(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                            //sgemm_armv8a_neon_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
 						}
 						else{//Micro-kernel cannot be applied
 							sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
