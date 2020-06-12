@@ -322,6 +322,162 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 }
 
 
+/** Packing of half precision matrix A.
+ * 
+ * Packs a block of matrix A into a buffer A_pack in the proper data arrengment 
+ *  that the microkernel needs.
+ * 
+ * @param[in] A Pointer pointing to the position of A to start packing.
+ * @param[in] lda Leading dimension of matrix a.
+ * @param[in] A_pack Buffer containing the portion of A packed.
+ * @param[in] m Height of the block to pack.
+ * @param[in] k Width of the block to pack.
+ */
+void hPack_A(__fp16 *A, unsigned int lda, __fp16 *A_pack, unsigned int m, unsigned int k)
+{
+	__fp16 *A_pack_local;
+
+	#pragma omp  parallel for private(A_pack_local)
+	for(unsigned int ic=0;ic<m;ic+=hBLOCK_MR){
+
+		A_pack_local=&A_pack[ic*k];
+		unsigned int m_alg=fmin(hBLOCK_MR,m-ic);
+		for(unsigned int pc=0;pc<k;pc++){
+
+			for(unsigned int ir=0;ir<m_alg;ir++){
+				A_pack_local[0]=A[(ic+ir)+pc*lda];
+				A_pack_local++;
+			}
+		}
+
+	}
+}
+
+
+/** Packing of half precision matrix B.
+ * 
+ * Packs a block of matrix B into a buffer B_pack in the proper data arrengment 
+ *  that the microkernel needs.
+ * 
+ * @param[in] B Pointer pointing to the position of B to start packing.
+ * @param[in] ldb Leading dimension of matrix B.
+ * @param[out] B_pack Buffer containing the portion of B packed.
+ * @param[in] n Width of the block to pack.
+ * @param[in] k Height of the block to pack.
+ */
+void hPack_B(__fp16 *B, unsigned int ldb, __fp16 *B_pack, unsigned int k, unsigned int n)
+
+{
+	__fp16 *B_pack_local;
+
+
+	#pragma omp parallel for private(B_pack_local)
+	for(unsigned int jc=0;jc<n;jc+=hBLOCK_NR){
+
+		B_pack_local=&B_pack[jc*k];
+		unsigned int n_alg=fmin(hBLOCK_NR,n-jc);
+		for(unsigned int pc=0;pc<k;pc++){
+
+			for(unsigned int jr=0;jr<n_alg;jr++){
+				B_pack_local[0]=B[pc+jc*ldb+jr*ldb];
+				B_pack_local++;
+			}
+		}
+
+	}
+}
+
+/** Half precision matrix matrix multiplication.
+ * 
+ * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects atrices stored in column major order.
+ * 
+ * @param[in] m Number of rows of matrix C and A.
+ * @param[in] n Number of columns of matrix C and B.
+ * @param[in] k Number of columns of matrix A and rows of matrix B.
+ * @param[in] alpha Scalar alpha .
+ * @param[in] A Matrix A.
+ * @param[in] lda Leading dimension of matrix A.
+ * @param[in] B Matrix B.
+ * @param[in] ldB Leading dimension of matrix B.
+ * @param[in] beta Scalar beta. 
+ * @param[in,out] C Matrix C.
+ * @param[in] ldc Leading dimension of matrix C.
+ * @param[in] Ac_pack_v Workspace for the packing of A (Only ofr allocation purposes).
+ * @param[in] Bc_pack_v Workspace for the packing of B (Only ofr allocation purposes).
+ */
+void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
+		__fp16 alpha,
+		__fp16 * A, unsigned int lda,
+		__fp16 * B, unsigned int ldb,
+		__fp16 beta,
+		__fp16 * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v ){
+            
+	__fp16 *Ac, *Bc;
+	__fp16 *Cc;
+	__fp16 *Ar, *Br;
+	__fp16 *Cr;
+	__fp16 betaInner;
+
+    
+    __fp16 *Ac_pack=(__fp16 *)Ac_pack_v;
+	__fp16 *Bc_pack=(__fp16 *)Bc_pack_v;
+
+
+	for (unsigned int jc=0; jc<n; jc+=hBLOCK_NC) {
+
+		unsigned int n_alg=fmin(hBLOCK_NC,n-jc);
+		for (unsigned int pc=0; pc<k; pc+=hBLOCK_KC) {
+
+			unsigned int k_alg=fmin(hBLOCK_KC,k-pc);
+			if (pc >= hBLOCK_KC) //Check beta
+				betaInner=1.0;
+			else
+				betaInner=beta;
+
+			Bc=&B[pc+jc*ldb];
+			sPack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
+
+			
+			for (unsigned int ic=0; ic<m; ic+=hBLOCK_MC) {
+
+				unsigned int m_alg=fmin(hBLOCK_MC,m-ic);
+				__fp16 *Ac_pack_local=Ac_pack; 
+
+				Ac=&A[ic+pc*lda];
+				sPack_A(Ac,lda,(__fp16*)Ac_pack_local,m_alg,k_alg); //PACK A
+
+				Cc=&C[ic+jc*ldc];
+
+
+				#pragma omp  parallel for private(Ar, Br, Cr)
+				for(unsigned jr=0;jr<n_alg;jr+=hBLOCK_NR){
+					unsigned int nr_alg=fmin(hBLOCK_NR,n_alg-jr);
+					for(unsigned int ir=0;ir<m_alg;ir+=hBLOCK_MR){
+						unsigned int mr_alg=fmin(hBLOCK_MR,m_alg-ir);
+						Ar=&Ac_pack_local[ir*k_alg];
+						Br=&Bc_pack[jr*k_alg];
+						Cr=&Cc[ir+jr*ldc];
+
+						if(mr_alg==hBLOCK_MR && nr_alg==hBLOCK_NR)
+						{
+                            //sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                           // sgemm_armv8a_asm_8x12_v2(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                            hgemm_armv8a_asm_8x24(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                            //sgemm_armv8a_neon_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						}
+						else{//Micro-kernel cannot be applied
+							sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						}
+					}
+				}
+
+			}
+		}
+	}
+}
+
+
 /** Packing of B + im2Col transform
  * 
  * Packs matrix B = im2Col(In) into the buffer B_pack in the proper data arrengment 

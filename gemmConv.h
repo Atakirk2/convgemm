@@ -32,6 +32,14 @@
 #define BLOCK_MR 8
 #define MAX_THREAD 4
 
+//simple precission BLIS block sizes fro ARM A-57
+#define hBLOCK_NC 3072
+#define hBLOCK_KC 640
+#define hBLOCK_MC 120
+#define hBLOCK_NR 24
+#define hBLOCK_MR 16
+#define hMAX_THREAD 4
+
 
 /********double precision gemm********/
 void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
@@ -68,6 +76,24 @@ void sgemm_ref(int k, int mr_alg, int nr_alg, 	float* restrict alpha, float* res
 //Packing routines
 void sPack_A(float *A, unsigned int lda, float *A_pack, unsigned int m, unsigned int k);
 void sPack_B(float *B, unsigned int ldb, float *B_pack, unsigned int k, unsigned int n);
+
+
+/********Half precision gemm********/
+void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
+		__fp16  alphap,
+		__fp16 * A, unsigned int lda,
+		__fp16 * B, unsigned int ldb,
+		__fp16  betap,
+		__fp16 * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v);
+
+//Microkernels
+void hgemm_armv8a_asm_8x24(int k,__fp16* restrict alpha, __fp16* restrict a, __fp16* restrict b, __fp16* restrict beta, __fp16* restrict c, int rs_c, int cs_c);
+void hgemm_ref(int k, int mr_alg, int nr_alg, 	__fp16* restrict alpha, __fp16* restrict a, __fp16* restrict b, __fp16* restrict beta, __fp16* restrict c, int rs_c, int cs_c);
+
+//Packing routines
+void hPack_A(__fp16 *A, unsigned int lda, __fp16 *A_pack, unsigned int m, unsigned int k);
+void hPack_B(__fp16 *B, unsigned int ldb, __fp16 *B_pack, unsigned int k, unsigned int n);
 
 
 /********simple precision convolution gemm********/
