@@ -71,19 +71,16 @@ __asm__ volatile
 
 "                                            \n\t"
 " dup  v8.8h, wzr                            \n\t" // Vectors for accummulating column 0
-//" prfm    PLDL1KEEP, [x1, #192]              \n\t" 
 " dup  v9.8h, wzr                            \n\t" 
-//" prfm    PLDL1KEEP, [x1, #256]              \n\t"
 " dup  v10.8h, wzr                           \n\t"
-//" prfm    PLDL1KEEP, [x1, #320]              \n\t"
 " dup  v11.8h, wzr                           \n\t" // Vector for accummulating column 1
 " dup  v12.8h, wzr                           \n\t" 
 " dup  v13.8h, wzr                           \n\t" 
 "                                            \n\t"
 " dup  v14.8h, wzr                           \n\t" // Vector for accummulating column 2
-//" prfm    PLDL1KEEP, [x0, #128]              \n\t"
+" prfm    PLDL1KEEP, [x0, #64]              \n\t"
 " dup  v15.8h, wzr                           \n\t" 
-//" prfm    PLDL1KEEP, [x0, #192]              \n\t"
+" prfm    PLDL1KEEP, [x0, #128]              \n\t"
 " dup  v16.8h, wzr                           \n\t" 
 " dup  v17.8h, wzr                           \n\t" // Vector for accummulating column 3
 " dup  v18.8h, wzr                           \n\t" 
@@ -114,131 +111,134 @@ __asm__ volatile
 "                                            \n\t"
 " .SLOOPKITER:                               \n\t" // Body of the k_iter loop.
 "                                            \n\t"
-" ld1 {v3.8h, v4.8h, v5.8h}, [x0],#48                      \n\t"
+
 " fmla v8.8h, v0.8h,v6.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
-" ld1 {v7.8h}, [x1],#16        \n\t"
-" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v0.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" ld1 {v3.8h, v4.8h, v5.8h}, [x0],#48                      \n\t"
 " fmla v14.8h,v0.8h,v6.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
-//" prfm    PLDL1KEEP, [x1, #288]              \n\t" 
 " fmla v17.8h,v0.8h,v6.h[3]                  \n\t" // Accummulate.
-//" prfm    PLDL1KEEP, [x1, #352]              \n\t" 
-" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
-//" prfm    PLDL1KEEP, [x1, #416]              \n\t" 
 " fmla v20.8h,v0.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v0.8h,v6.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v0.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v0.8h,v6.h[7]                  \n\t" // Accummulate.
+" ld1 {v7.8h}, [x1],#16        \n\t"
+"                                            \n\t"
+" prfm    PLDL1KEEP, [x1, #32]              \n\t" 
+" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v1.8h,v6.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v2.8h,v6.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
 "                                            \n\t"
 "                                            \n\t" //End It 1
 "                                            \n\t"
-" ld1 {v0.8h, v1.8h, v2.8h}, [x0],#48                      \n\t"
 " fmla v8.8h, v3.8h,v7.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v4.8h,v7.h[0]                  \n\t" // Accummulate.
-" ld1 {v6.8h}, [x1],#16        \n\t"
-" fmla v10.8h,v5.8h,v7.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v3.8h,v7.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v4.8h,v7.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v5.8h,v7.h[1]                  \n\t" // Accummulate.
+" ld1 {v0.8h, v1.8h, v2.8h}, [x0],#48                      \n\t"
+
 " fmla v14.8h,v3.8h,v7.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v4.8h,v7.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v5.8h,v7.h[2]                  \n\t" // Accummulate.
-//" prfm    PLDL1KEEP, [x0, #192]              \n\t"
 " fmla v17.8h,v3.8h,v7.h[3]                  \n\t" // Accummulate.
-//" prfm    PLDL1KEEP, [x0, #256]              \n\t"
-" fmla v18.8h,v4.8h,v7.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v5.8h,v7.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v3.8h,v7.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v4.8h,v7.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v5.8h,v7.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v3.8h,v7.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v4.8h,v7.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v5.8h,v7.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v3.8h,v7.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v4.8h,v7.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v5.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v3.8h,v7.h[7]                  \n\t" // Accummulate.
+" ld1 {v6.8h}, [x1],#16        \n\t"
+"                                            \n\t"
+" prfm    PLDL1KEEP, [x0, #48]              \n\t"
+" fmla v9.8h, v4.8h,v7.h[0]                  \n\t" // Accummulate.
+" prfm    PLDL1KEEP, [x0, #112]              \n\t"
+" fmla v12.8h,v4.8h,v7.h[1]                  \n\t" // Accummulate.
+" prfm    PLDL1KEEP, [x0, #176]              \n\t"
+" fmla v15.8h,v4.8h,v7.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v4.8h,v7.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v4.8h,v7.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v4.8h,v7.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v4.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v4.8h,v7.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v5.8h,v7.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v5.8h,v7.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v5.8h,v7.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v5.8h,v7.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v5.8h,v7.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v5.8h,v7.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v5.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v5.8h,v7.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 "                                            \n\t" //End It 2
 "                                            \n\t"
-" ld1 {v3.8h, v4.8h, v5.8h}, [x0],#48                      \n\t"
 " fmla v8.8h, v0.8h,v6.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
-" ld1 {v7.8h}, [x1],#16        \n\t"
-" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v0.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" ld1 {v3.8h, v4.8h, v5.8h}, [x0],#48                      \n\t"
+
 " fmla v14.8h,v0.8h,v6.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
 " fmla v17.8h,v0.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v0.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v0.8h,v6.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v0.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v0.8h,v6.h[7]                  \n\t" // Accummulate.
+" ld1 {v7.8h}, [x1],#16        \n\t"
+"                                            \n\t"
+" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v1.8h,v6.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v2.8h,v6.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 "                                            \n\t" //End It 3
 "                                            \n\t"
-" ld1 {v0.8h, v1.8h, v2.8h}, [x0],#48                      \n\t"
 " fmla v8.8h, v3.8h,v7.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v4.8h,v7.h[0]                  \n\t" // Accummulate.
-" ld1 {v6.8h}, [x1],#16        \n\t"
-" fmla v10.8h,v5.8h,v7.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v3.8h,v7.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v4.8h,v7.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v5.8h,v7.h[1]                  \n\t" // Accummulate.
+" ld1 {v0.8h, v1.8h, v2.8h}, [x0],#48                      \n\t"
 " fmla v14.8h,v3.8h,v7.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v4.8h,v7.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v5.8h,v7.h[2]                  \n\t" // Accummulate.
 " fmla v17.8h,v3.8h,v7.h[3]                  \n\t" // Accummulate.
-" fmla v18.8h,v4.8h,v7.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v5.8h,v7.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v3.8h,v7.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v4.8h,v7.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v5.8h,v7.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v3.8h,v7.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v4.8h,v7.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v5.8h,v7.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v3.8h,v7.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v4.8h,v7.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v5.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v3.8h,v7.h[7]                  \n\t" // Accummulate.
+" ld1 {v6.8h}, [x1],#16        \n\t"
+"                                            \n\t"
+" fmla v9.8h, v4.8h,v7.h[0]                  \n\t" // Accummulate.
+" fmla v12.8h,v4.8h,v7.h[1]                  \n\t" // Accummulate.
+" fmla v15.8h,v4.8h,v7.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v4.8h,v7.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v4.8h,v7.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v4.8h,v7.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v4.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v4.8h,v7.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v5.8h,v7.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v5.8h,v7.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v5.8h,v7.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v5.8h,v7.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v5.8h,v7.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v5.8h,v7.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v5.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v5.8h,v7.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 "                                            \n\t" //End It 4
@@ -248,124 +248,128 @@ __asm__ volatile
 "                                            \n\t" 
 " .SLASTITER:                                \n\t" // Last iteration of k_iter loop.
 "                                            \n\t" 
-" ld1 {v3.8h, v4.8h, v5.8h}, [x0],#48                      \n\t"
 " fmla v8.8h, v0.8h,v6.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
-" ld1 {v7.8h}, [x1],#16        \n\t"
-" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v0.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" ld1 {v3.8h, v4.8h, v5.8h}, [x0],#48                      \n\t"
+
 " fmla v14.8h,v0.8h,v6.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
 " fmla v17.8h,v0.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v0.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v0.8h,v6.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v0.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v0.8h,v6.h[7]                  \n\t" // Accummulate.
+" ld1 {v7.8h}, [x1],#16        \n\t"
+"                                            \n\t"
+" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v1.8h,v6.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v2.8h,v6.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
 "                                            \n\t"
 "                                            \n\t" //End It 1
 "                                            \n\t"
-" ld1 {v0.8h, v1.8h, v2.8h}, [x0],#48                      \n\t"
 " fmla v8.8h, v3.8h,v7.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v4.8h,v7.h[0]                  \n\t" // Accummulate.
-" ld1 {v6.8h}, [x1],#16        \n\t"
-" fmla v10.8h,v5.8h,v7.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v3.8h,v7.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v4.8h,v7.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v5.8h,v7.h[1]                  \n\t" // Accummulate.
+" ld1 {v0.8h, v1.8h, v2.8h}, [x0],#48                      \n\t"
+
 " fmla v14.8h,v3.8h,v7.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v4.8h,v7.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v5.8h,v7.h[2]                  \n\t" // Accummulate.
 " fmla v17.8h,v3.8h,v7.h[3]                  \n\t" // Accummulate.
-" fmla v18.8h,v4.8h,v7.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v5.8h,v7.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v3.8h,v7.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v4.8h,v7.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v5.8h,v7.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v3.8h,v7.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v4.8h,v7.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v5.8h,v7.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v3.8h,v7.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v4.8h,v7.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v5.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v3.8h,v7.h[7]                  \n\t" // Accummulate.
+" ld1 {v6.8h}, [x1],#16        \n\t"
+"                                            \n\t"
+" fmla v9.8h, v4.8h,v7.h[0]                  \n\t" // Accummulate.
+" fmla v12.8h,v4.8h,v7.h[1]                  \n\t" // Accummulate.
+" fmla v15.8h,v4.8h,v7.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v4.8h,v7.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v4.8h,v7.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v4.8h,v7.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v4.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v4.8h,v7.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v5.8h,v7.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v5.8h,v7.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v5.8h,v7.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v5.8h,v7.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v5.8h,v7.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v5.8h,v7.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v5.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v5.8h,v7.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 "                                            \n\t" //End It 2
 "                                            \n\t"
-" ld1 {v3.8h, v4.8h, v5.8h}, [x0],#48                      \n\t"
 " fmla v8.8h, v0.8h,v6.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
-" ld1 {v7.8h}, [x1],#16        \n\t"
-" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v0.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" ld1 {v3.8h, v4.8h, v5.8h}, [x0],#48                      \n\t"
+
 " fmla v14.8h,v0.8h,v6.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
 " fmla v17.8h,v0.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v0.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v0.8h,v6.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v0.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v0.8h,v6.h[7]                  \n\t" // Accummulate.
+" ld1 {v7.8h}, [x1],#16        \n\t"
+"                                            \n\t"
+" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v1.8h,v6.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v2.8h,v6.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 "                                            \n\t" //End It 3
 "                                            \n\t"
 " fmla v8.8h, v3.8h,v7.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v4.8h,v7.h[0]                  \n\t" // Accummulate.
-" fmla v10.8h,v5.8h,v7.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v3.8h,v7.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v4.8h,v7.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v5.8h,v7.h[1]                  \n\t" // Accummulate.
 " fmla v14.8h,v3.8h,v7.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v4.8h,v7.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v5.8h,v7.h[2]                  \n\t" // Accummulate.
 " fmla v17.8h,v3.8h,v7.h[3]                  \n\t" // Accummulate.
-" fmla v18.8h,v4.8h,v7.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v5.8h,v7.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v3.8h,v7.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v4.8h,v7.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v5.8h,v7.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v3.8h,v7.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v4.8h,v7.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v5.8h,v7.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v3.8h,v7.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v4.8h,v7.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v5.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v3.8h,v7.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v9.8h, v4.8h,v7.h[0]                  \n\t" // Accummulate.
+" fmla v12.8h,v4.8h,v7.h[1]                  \n\t" // Accummulate.
+" fmla v15.8h,v4.8h,v7.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v4.8h,v7.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v4.8h,v7.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v4.8h,v7.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v4.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v4.8h,v7.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v5.8h,v7.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v5.8h,v7.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v5.8h,v7.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v5.8h,v7.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v5.8h,v7.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v5.8h,v7.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v5.8h,v7.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v5.8h,v7.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 "                                            \n\t" //End It 4
@@ -382,30 +386,30 @@ __asm__ volatile
 " ld1 {v0.8h, v1.8h, v2.8h}, [x0],#48                      \n\t"
 " ld1 {v6.8h}, [x1],#16        \n\t"
 " fmla v8.8h, v0.8h,v6.h[0]                  \n\t" // Accummulate.
-" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
-" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
 " fmla v11.8h,v0.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
-" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
 " fmla v14.8h,v0.8h,v6.h[2]                  \n\t" // Accummulate.
-" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
 " fmla v17.8h,v0.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
-" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v0.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
-" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
 " fmla v23.8h,v0.8h,v6.h[5]                  \n\t" // Accummulate.
-"                                            \n\t"
-" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
-" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
 " fmla v26.8h,v0.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
-" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v29.8h,v0.8h,v6.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v9.8h, v1.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v12.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v15.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v18.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v21.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v24.8h,v1.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v27.8h,v1.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v30.8h,v1.8h,v6.h[7]                  \n\t" // Accummulate.
+"                                            \n\t"
+" fmla v10.8h,v2.8h,v6.h[0]                  \n\t" // Accummulate.
+" fmla v13.8h,v2.8h,v6.h[1]                  \n\t" // Accummulate.
+" fmla v16.8h,v2.8h,v6.h[2]                  \n\t" // Accummulate.
+" fmla v19.8h,v2.8h,v6.h[3]                  \n\t" // Accummulate.
+" fmla v22.8h,v2.8h,v6.h[4]                  \n\t" // Accummulate.
+" fmla v25.8h,v2.8h,v6.h[5]                  \n\t" // Accummulate.
+" fmla v28.8h,v2.8h,v6.h[6]                  \n\t" // Accummulate.
 " fmla v31.8h,v2.8h,v6.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 " cmp x6,0                                   \n\t" // Iterate again.
@@ -436,7 +440,6 @@ __asm__ volatile
 "                                            \n\t"
 " ld1 {v0.8h,v1.8h, v2.8h}, [x2]             \n\t" //Load column 0 of C
 " ld1 {v3.8h, v4.8h, v5.8h}, [x16]           \n\t" //Load column 1 of C
-
 "                                            \n\t"
 " fmul v0.8h,v0.8h,v7.h[0]                   \n\t" // Scale by beta
 " fmul v1.8h,v1.8h,v7.h[0]                   \n\t" // Scale by beta

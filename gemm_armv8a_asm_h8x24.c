@@ -3,11 +3,11 @@
 void hgemm_armv8a_asm_8x24
      (
        dim_t               k0,
-       __fp16*     restrict alpha,
-       __fp16*     restrict a,
-       __fp16*     restrict b,
-       __fp16*     restrict beta,
-       __fp16*     restrict c, inc_t rs_c0, inc_t cs_c0//,
+       _Float16*     restrict alpha,
+       _Float16*     restrict a,
+       _Float16*     restrict b,
+       _Float16*     restrict beta,
+       _Float16*     restrict c, inc_t rs_c0, inc_t cs_c0//,
       // auxinfo_t* restrict data,
        //cntx_t*    restrict cntx
      )
@@ -21,7 +21,6 @@ void hgemm_armv8a_asm_8x24
 	uint64_t k_left = k0 % 4;
 	uint64_t rs_c   = rs_c0;
 	uint64_t cs_c   = cs_c0;
-
 
 __asm__ volatile 
 (
@@ -84,41 +83,41 @@ __asm__ volatile
 " prfm pldl1keep,[x28]                       \n\t" // Prefetch c.
 " prfm pldl1keep,[x11]                       \n\t" // Prefetch c.
 " prfm pldl1keep,[x12]                       \n\t" // Prefetch c.
+" prfm pldl1keep,[x9]                       \n\t" // Prefetch c.
 " prfm pldl1keep,[x13]                       \n\t" // Prefetch c.
-" prfm pldl1keep,[x14]                       \n\t" // Prefetch c.
 "                                            \n\t"
 " dup  v8.8h, wzr                            \n\t" // Vector for accummulating column 0
-//" prfm    PLDL1KEEP, [x1, #192]              \n\t" 
-" dup  v9.8h, wzr                            \n\t" // Vector for accummulating column 0
-//" prfm    PLDL1KEEP, [x1, #256]              \n\t"
-" dup  v10.8h, wzr                           \n\t" // Vector for accummulating column 1
-//" prfm    PLDL1KEEP, [x1, #320]              \n\t"
-" dup  v11.8h, wzr                           \n\t" // Vector for accummulating column 1
-" dup  v12.8h, wzr                           \n\t" // Vector for accummulating column 2 
-" dup  v13.8h, wzr                           \n\t" // Vector for accummulating column 2
+" prfm    PLDL1KEEP, [x1, #192]              \n\t" 
+" dup  v9.8h, wzr                            \n\t" // Vector for accummulating column 1
+" prfm    PLDL1KEEP, [x1, #256]              \n\t"
+" dup  v10.8h, wzr                           \n\t" // Vector for accummulating column 2
+" prfm    PLDL1KEEP, [x1, #320]              \n\t"
+" dup  v11.8h, wzr                           \n\t" // Vector for accummulating column 3
+" dup  v12.8h, wzr                           \n\t" // Vector for accummulating column 4 
+" dup  v13.8h, wzr                           \n\t" // Vector for accummulating column 5
 "                                            \n\t"
-" dup  v14.8h, wzr                           \n\t" // Vector for accummulating column 3
-//" prfm    PLDL1KEEP, [x0, #128]              \n\t"
-" dup  v15.8h, wzr                           \n\t" // Vector for accummulating column 3
-//" prfm    PLDL1KEEP, [x0, #192]              \n\t"
-" dup  v16.8h, wzr                           \n\t" // Vector for accummulating column 4
-" dup  v17.8h, wzr                           \n\t" // Vector for accummulating column 4
-" dup  v18.8h, wzr                           \n\t" // Vector for accummulating column 5 
-" dup  v19.8h, wzr                           \n\t" // Vector for accummulating column 5
+" dup  v14.8h, wzr                           \n\t" // Vector for accummulating column 6
+" prfm    PLDL1KEEP, [x0, #128]              \n\t"
+" dup  v15.8h, wzr                           \n\t" // Vector for accummulating column 7
+" prfm    PLDL1KEEP, [x0, #192]              \n\t"
+" dup  v16.8h, wzr                           \n\t" // Vector for accummulating column 8
+" dup  v17.8h, wzr                           \n\t" // Vector for accummulating column 9
+" dup  v18.8h, wzr                           \n\t" // Vector for accummulating column 10 
+" dup  v19.8h, wzr                           \n\t" // Vector for accummulating column 11
 "                                            \n\t"
-" dup  v20.8h, wzr                           \n\t" // Vector for accummulating column 6 
-" dup  v21.8h, wzr                           \n\t" // Vector for accummulating column 6
-" dup  v22.8h, wzr                           \n\t" // Vector for accummulating column 7
-" dup  v23.8h, wzr                           \n\t" // Vector for accummulating column 7
-" dup  v24.8h, wzr                           \n\t" // Vector for accummulating column 8 
-" dup  v25.8h, wzr                           \n\t" // Vector for accummulating column 8
+" dup  v20.8h, wzr                           \n\t" // Vector for accummulating column 12 
+" dup  v21.8h, wzr                           \n\t" // Vector for accummulating column 13
+" dup  v22.8h, wzr                           \n\t" // Vector for accummulating column 14
+" dup  v23.8h, wzr                           \n\t" // Vector for accummulating column 15
+" dup  v24.8h, wzr                           \n\t" // Vector for accummulating column 16 
+" dup  v25.8h, wzr                           \n\t" // Vector for accummulating column 17
 "                                            \n\t"
-" dup  v26.8h, wzr                           \n\t" // Vector for accummulating column 9 
-" dup  v27.8h, wzr                           \n\t" // Vector for accummulating column 9
-" dup  v28.8h, wzr                           \n\t" // Vector for accummulating column 10
-" dup  v29.8h, wzr                           \n\t" // Vector for accummulating column 10
-" dup  v30.8h, wzr                           \n\t" // Vector for accummulating column 11 
-" dup  v31.8h, wzr                           \n\t" // Vector for accummulating column 11
+" dup  v26.8h, wzr                           \n\t" // Vector for accummulating column 18 
+" dup  v27.8h, wzr                           \n\t" // Vector for accummulating column 19
+" dup  v28.8h, wzr                           \n\t" // Vector for accummulating column 20
+" dup  v29.8h, wzr                           \n\t" // Vector for accummulating column 21
+" dup  v30.8h, wzr                           \n\t" // Vector for accummulating column 22 
+" dup  v31.8h, wzr                           \n\t" // Vector for accummulating column 23
 "                                            \n\t"
 " cmp x5,#0                                  \n\t" // If k_iter == 0, jump to k_left.
 " beq .SCONSIDERKLEFT                        \n\t"
@@ -132,9 +131,9 @@ __asm__ volatile
 " .SLOOPKITER:                               \n\t" // Body of the k_iter loop.
 "                                            \n\t"
 " ld1 {v1.8h}, [x0],#16                      \n\t"
-" ld1 {v5.8h, v6.8h, v7.8h}, [x1],#48        \n\t"
 " fmla v8.8h, v0.8h,v2.h[0]                  \n\t" // Accummulate.
 " fmla v9.8h, v0.8h,v2.h[1]                  \n\t" // Accummulate.
+" ld1 {v5.8h, v6.8h, v7.8h}, [x1],#48        \n\t"
 " fmla v10.8h,v0.8h,v2.h[2]                  \n\t" // Accummulate.
 " fmla v11.8h,v0.8h,v2.h[3]                  \n\t" // Accummulate.
 " fmla v12.8h,v0.8h,v2.h[4]                  \n\t" // Accummulate.
@@ -143,9 +142,12 @@ __asm__ volatile
 " fmla v15.8h,v0.8h,v2.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 " fmla v16.8h,v0.8h,v3.h[0]                  \n\t" // Accummulate.
+" prfm    PLDL1KEEP, [x1, #288]              \n\t" 
 " fmla v17.8h,v0.8h,v3.h[1]                  \n\t" // Accummulate.
+" prfm    PLDL1KEEP, [x1, #352]              \n\t" 
 " fmla v18.8h,v0.8h,v3.h[2]                  \n\t" // Accummulate.
 " fmla v19.8h,v0.8h,v3.h[3]                  \n\t" // Accummulate.
+" prfm    PLDL1KEEP, [x1, #416]              \n\t" 
 " fmla v20.8h,v0.8h,v3.h[4]                  \n\t" // Accummulate.
 " fmla v21.8h,v0.8h,v3.h[5]                  \n\t" // Accummulate.
 " fmla v22.8h,v0.8h,v3.h[6]                  \n\t" // Accummulate.
@@ -163,9 +165,9 @@ __asm__ volatile
 "                                            \n\t" //End It 1
 "                                            \n\t"
 " ld1 {v0.8h}, [x0],#16                      \n\t"
-" ld1 {v2.8h, v3.8h, v4.8h}, [x1],#48        \n\t"
 " fmla v8.8h, v1.8h,v5.h[0]                  \n\t" // Accummulate.
 " fmla v9.8h, v1.8h,v5.h[1]                  \n\t" // Accummulate.
+" ld1 {v2.8h, v3.8h, v4.8h}, [x1],#48        \n\t"
 " fmla v10.8h,v1.8h,v5.h[2]                  \n\t" // Accummulate.
 " fmla v11.8h,v1.8h,v5.h[3]                  \n\t" // Accummulate.
 " fmla v12.8h,v1.8h,v5.h[4]                  \n\t" // Accummulate.
@@ -174,7 +176,9 @@ __asm__ volatile
 " fmla v15.8h,v1.8h,v5.h[7]                  \n\t" // Accummulate.
 "                                            \n\t"
 " fmla v16.8h,v1.8h,v6.h[0]                  \n\t" // Accummulate.
+" prfm    PLDL1KEEP, [x0, #192]              \n\t"
 " fmla v17.8h,v1.8h,v6.h[1]                  \n\t" // Accummulate.
+" prfm    PLDL1KEEP, [x0, #256]              \n\t"
 " fmla v18.8h,v1.8h,v6.h[2]                  \n\t" // Accummulate.
 " fmla v19.8h,v1.8h,v6.h[3]                  \n\t" // Accummulate.
 " fmla v20.8h,v1.8h,v6.h[4]                  \n\t" // Accummulate.
@@ -194,9 +198,9 @@ __asm__ volatile
 "                                            \n\t" //End It 2
 "                                            \n\t"
 " ld1 {v1.8h}, [x0],#16                      \n\t"
-" ld1 {v5.8h, v6.8h, v7.8h}, [x1],#48        \n\t"
 " fmla v8.8h, v0.8h,v2.h[0]                  \n\t" // Accummulate.
 " fmla v9.8h, v0.8h,v2.h[1]                  \n\t" // Accummulate.
+" ld1 {v5.8h, v6.8h, v7.8h}, [x1],#48        \n\t"
 " fmla v10.8h,v0.8h,v2.h[2]                  \n\t" // Accummulate.
 " fmla v11.8h,v0.8h,v2.h[3]                  \n\t" // Accummulate.
 " fmla v12.8h,v0.8h,v2.h[4]                  \n\t" // Accummulate.
@@ -225,9 +229,9 @@ __asm__ volatile
 "                                            \n\t" //End It 3
 "                                            \n\t"
 " ld1 {v0.8h}, [x0],#16                      \n\t"
-" ld1 {v2.8h, v3.8h, v4.8h}, [x1],#48        \n\t"
 " fmla v8.8h, v1.8h,v5.h[0]                  \n\t" // Accummulate.
 " fmla v9.8h, v1.8h,v5.h[1]                  \n\t" // Accummulate.
+" ld1 {v2.8h, v3.8h, v4.8h}, [x1],#48        \n\t"
 " fmla v10.8h,v1.8h,v5.h[2]                  \n\t" // Accummulate.
 " fmla v11.8h,v1.8h,v5.h[3]                  \n\t" // Accummulate.
 " fmla v12.8h,v1.8h,v5.h[4]                  \n\t" // Accummulate.
@@ -261,9 +265,9 @@ __asm__ volatile
 " .SLASTITER:                                \n\t" // Last iteration of k_iter loop.
 "                                            \n\t" 
 " ld1 {v1.8h}, [x0],#16                      \n\t"
-" ld1 {v5.8h, v6.8h, v7.8h}, [x1],#48        \n\t"
 " fmla v8.8h, v0.8h,v2.h[0]                  \n\t" // Accummulate.
 " fmla v9.8h, v0.8h,v2.h[1]                  \n\t" // Accummulate.
+" ld1 {v5.8h, v6.8h, v7.8h}, [x1],#48        \n\t"
 " fmla v10.8h,v0.8h,v2.h[2]                  \n\t" // Accummulate.
 " fmla v11.8h,v0.8h,v2.h[3]                  \n\t" // Accummulate.
 " fmla v12.8h,v0.8h,v2.h[4]                  \n\t" // Accummulate.
@@ -292,9 +296,9 @@ __asm__ volatile
 "                                            \n\t" //End It 1
 "                                            \n\t"
 " ld1 {v0.8h}, [x0],#16                      \n\t"
-" ld1 {v2.8h, v3.8h, v4.8h}, [x1],#48        \n\t"
 " fmla v8.8h, v1.8h,v5.h[0]                  \n\t" // Accummulate.
 " fmla v9.8h, v1.8h,v5.h[1]                  \n\t" // Accummulate.
+" ld1 {v2.8h, v3.8h, v4.8h}, [x1],#48        \n\t"
 " fmla v10.8h,v1.8h,v5.h[2]                  \n\t" // Accummulate.
 " fmla v11.8h,v1.8h,v5.h[3]                  \n\t" // Accummulate.
 " fmla v12.8h,v1.8h,v5.h[4]                  \n\t" // Accummulate.
@@ -427,8 +431,8 @@ __asm__ volatile
 "                                            \n\t"
 //" ld1r {v6.8h},[x7]                          \n\t" // Load alpha.
 //" ld1r {v7.8h},[x8]                          \n\t" // Load beta
-" ld1 {v7.h[0]},[x7]                          \n\t" // Load alpha.
-" ld1 {v7.h[1]},[x8]                          \n\t" // Load beta
+" ld1 {v7.h}[1],[x7]                          \n\t" // Load alpha.
+" ld1 {v7.h}[0],[x8]                          \n\t" // Load beta
 "                                            \n\t"
 //" cmp x13,#1                                 \n\t" // If rs_c != 1 (column-major)
 //" bne .SGENSTORED                            \n\t"
@@ -457,7 +461,7 @@ __asm__ volatile
 " dup  v5.8h, wzr                            \n\t"
 " dup  v6.8h, wzr                            \n\t"
 "                                            \n\t"
-" fcmp s7,#0.0                               \n\t"
+" fcmp h7,#0.0                               \n\t"
 " beq .SBETAZEROCOLSTOREDS1                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
 " ld1 {v0.8h}, [x2]                          \n\t" //Load column 0 of C
@@ -466,25 +470,25 @@ __asm__ volatile
 " ld1 {v3.8h}, [x18]                         \n\t" //Load column 3 of C
 " ld1 {v4.8h}, [x19]                         \n\t" //Load column 4 of C
 "                                            \n\t"
-" fmul v0.8h,v0.8h,v7.h[1]                   \n\t" // Scale by beta
+" fmul v0.8h,v0.8h,v7.h[0]                   \n\t" // Scale by beta
 " ld1 {v5.8h}, [x20]                         \n\t" //Load column 5 of C
-" fmul v1.8h,v1.8h,v7.h[1]                   \n\t" // Scale by beta
+" fmul v1.8h,v1.8h,v7.h[0]                   \n\t" // Scale by beta
 " ld1 {v6.8h}, [x21]                         \n\t" //Load column 6 of C
-" fmul v2.8h,v2.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v3.8h,v3.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v4.8h,v4.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v5.8h,v5.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v6.8h,v6.8h,v7.h[1]                   \n\t" // Scale by beta
+" fmul v2.8h,v2.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v3.8h,v3.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v4.8h,v4.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v5.8h,v5.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v6.8h,v6.8h,v7.h[0]                   \n\t" // Scale by beta
 "                                            \n\t"
 " .SBETAZEROCOLSTOREDS1:                     \n\t"
 "                                            \n\t"
-" fmla v0.8h,v8.8h,v7.h[0]                   \n\t" // Scale by alpha
-" fmla v1.8h,v9.8h,v7.h[0]                   \n\t" // Scale by alpha
-" fmla v2.8h,v10.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v3.8h,v11.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v4.8h,v12.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v5.8h,v13.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v6.8h,v14.8h,v7.h[0]                  \n\t" // Scale by alpha
+" fmla v0.8h,v8.8h,v7.h[1]                   \n\t" // Scale by alpha
+" fmla v1.8h,v9.8h,v7.h[1]                   \n\t" // Scale by alpha
+" fmla v2.8h,v10.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v3.8h,v11.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v4.8h,v12.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v5.8h,v13.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v6.8h,v14.8h,v7.h[1]                  \n\t" // Scale by alpha
 "                                            \n\t"
 " st1 {v0.8h}, [x2]                          \n\t" //Store column 0 of C
 " st1 {v1.8h}, [x16]                         \n\t" //Store column 1 of C
@@ -509,7 +513,7 @@ __asm__ volatile
 " dup  v5.8h, wzr                            \n\t"
 " dup  v6.8h, wzr                            \n\t"
 "                                            \n\t"
-" fcmp s7,#0.0                               \n\t"
+" fcmp h7,#0.0                               \n\t"
 " beq .SBETAZEROCOLSTOREDS2                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
 " ld1 {v8.8h}, [x22]                          \n\t" //Load column 7 of C
@@ -527,37 +531,37 @@ __asm__ volatile
 " ld1 {v5.8h}, [x6]                         \n\t" //Load column 19 of C
 " ld1 {v6.8h}, [x0]                         \n\t" //Load column 20 of C
 "                                            \n\t"
-" fmul v8.8h, v8.8h, v7.h[1]                 \n\t" // Scale by beta
-" fmul v9.8h, v9.8h, v7.h[1]                 \n\t" // Scale by beta
-" fmul v10.8h,v10.8h,v7.h[1]                 \n\t" // Scale by beta
-" fmul v11.8h,v11.8h,v7.h[1]                 \n\t" // Scale by beta
-" fmul v12.8h,v12.8h,v7.h[1]                 \n\t" // Scale by beta
-" fmul v13.8h,v13.8h,v7.h[1]                 \n\t" // Scale by beta
-" fmul v14.8h,v14.8h,v7.h[1]                 \n\t" // Scale by beta
-" fmul v0.8h,v0.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v1.8h,v1.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v2.8h,v2.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v3.8h,v3.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v4.8h,v4.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v5.8h,v5.8h,v7.h[1]                   \n\t" // Scale by beta
-" fmul v6.8h,v6.8h,v7.h[1]                   \n\t" // Scale by beta
+" fmul v8.8h, v8.8h, v7.h[0]                 \n\t" // Scale by beta
+" fmul v9.8h, v9.8h, v7.h[0]                 \n\t" // Scale by beta
+" fmul v10.8h,v10.8h,v7.h[0]                 \n\t" // Scale by beta
+" fmul v11.8h,v11.8h,v7.h[0]                 \n\t" // Scale by beta
+" fmul v12.8h,v12.8h,v7.h[0]                 \n\t" // Scale by beta
+" fmul v13.8h,v13.8h,v7.h[0]                 \n\t" // Scale by beta
+" fmul v14.8h,v14.8h,v7.h[0]                 \n\t" // Scale by beta
+" fmul v0.8h,v0.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v1.8h,v1.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v2.8h,v2.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v3.8h,v3.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v4.8h,v4.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v5.8h,v5.8h,v7.h[0]                   \n\t" // Scale by beta
+" fmul v6.8h,v6.8h,v7.h[0]                   \n\t" // Scale by beta
 "                                            \n\t"
 " .SBETAZEROCOLSTOREDS2:                     \n\t"
 "                                            \n\t"
-" fmla v8.8h, v15.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v9.8h, v16.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v10.8h,v17.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v11.8h,v18.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v12.8h,v19.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v13.8h,v20.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v14.8h,v21.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v0.8h,v22.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v1.8h,v23.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v2.8h,v24.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v3.8h,v25.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v4.8h,v26.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v5.8h,v27.8h,v7.h[0]                  \n\t" // Scale by alpha
-" fmla v6.8h,v28.8h,v7.h[0]                  \n\t" // Scale by alpha
+" fmla v8.8h, v15.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v9.8h, v16.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v10.8h,v17.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v11.8h,v18.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v12.8h,v19.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v13.8h,v20.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v14.8h,v21.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v0.8h,v22.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v1.8h,v23.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v2.8h,v24.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v3.8h,v25.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v4.8h,v26.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v5.8h,v27.8h,v7.h[1]                  \n\t" // Scale by alpha
+" fmla v6.8h,v28.8h,v7.h[1]                  \n\t" // Scale by alpha
 "                                            \n\t"
 " st1 {v8.8h}, [x22]                         \n\t" //Store column 7 of C
 " st1 {v9.8h}, [x23]                         \n\t" //Store column 8 of C
@@ -578,30 +582,30 @@ __asm__ volatile
 " dup  v16.8h, wzr                           \n\t"
 " dup  v17.8h, wzr                           \n\t"
 "                                            \n\t"
-" fcmp s7,#0.0                               \n\t"
-" beq .SBETAZEROCOLSTOREDS4                  \n\t" // Taking care of the beta==0 case.
+" fcmp h7,#0.0                               \n\t"
+" beq .SBETAZEROCOLSTOREDS3                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
 " ld1 {v15.8h}, [x1]                         \n\t" //Load column 21 of C
 " ld1 {v16.8h}, [x7]                         \n\t" //Load column 22 of C
 " ld1 {v17.8h}, [x8]                         \n\t" //Load column 23 of C
 "                                            \n\t"
-" fmul v15.8h,v15.8h,v7.h[1]                 \n\t" // Scale by beta
-" fmul v16.8h,v16.8h,v7.h[1]                 \n\t" // Scale by beta
-" fmul v17.8h,v17.8h,v7.h[1]                 \n\t" // Scale by beta
+" fmul v15.8h,v15.8h,v7.h[0]                 \n\t" // Scale by beta
+" fmul v16.8h,v16.8h,v7.h[0]                 \n\t" // Scale by beta
+" fmul v17.8h,v17.8h,v7.h[0]                 \n\t" // Scale by beta
 "                                            \n\t"
-" .SBETAZEROCOLSTOREDS4:                     \n\t"
+" .SBETAZEROCOLSTOREDS3:                     \n\t"
 "                                            \n\t"
 //" prfm pldl2keep,[x3]                        \n\t"
 //" prfm pldl2keep,[x4]                        \n\t"
 "                                            \n\t"
-" fmla v15.8h,v29.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v16.8h,v30.8h,v7.h[0]                 \n\t" // Scale by alpha
-" fmla v17.8h,v31.8h,v7.h[0]                 \n\t" // Scale by alpha
+" fmla v15.8h,v29.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v16.8h,v30.8h,v7.h[1]                 \n\t" // Scale by alpha
+" fmla v17.8h,v31.8h,v7.h[1]                 \n\t" // Scale by alpha
 
 "                                            \n\t"
-" ld1 {v15.8h}, [x1]                         \n\t" //Store column 21 of C
-" ld1 {v16.8h}, [x7]                         \n\t" //Store column 22 of C
-" ld1 {v17.8h}, [x8]                         \n\t" //Store column 23 of C
+" st1 {v15.8h}, [x1]                         \n\t" //Store column 21 of C
+" st1 {v16.8h}, [x7]                         \n\t" //Store column 22 of C
+" st1 {v17.8h}, [x8]                         \n\t" //Store column 23 of C
 "                                            \n\t"
 " .SEND:                                     \n\t" // Done!
 "                                            \n\t"
@@ -625,7 +629,7 @@ __asm__ volatile
  "x13","x14","x15",
  "x16","x17","x18","x19",       
  "x20","x21","x22","x23",
- "x24","x25","x26","x27",
+ "x24","x25","x26","x27","x28",
  "v0", "v1", "v2", "v3",
  "v4", "v5", "v6", "v7",
  "v8", "v9", "v10","v11",
