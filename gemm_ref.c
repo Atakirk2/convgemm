@@ -119,3 +119,116 @@ void sgemm_ref( int k, int mr_alg, int nr_alg, float* restrict alpha, float* res
         }
 }
 
+void hgemm_ref( int k, int mr_alg, int nr_alg, _Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, _Float16* restrict c, int rs_c, int cs_c)
+{
+        _Float16 ab[mr_alg*nr_alg];
+        _Float16 bj, ai;
+        unsigned int l,i,j;
+        for ( i = 0; i < mr_alg * nr_alg ; ++i ){ //set 0s
+
+                *(ab+i)=0;
+        }
+
+        for ( l = 0; l < k; ++l ){
+                _Float16 *abij=ab;
+                for ( j = 0; j < nr_alg; ++j ){
+                        bj = *(b + j);
+                        for ( i = 0; i < mr_alg; ++i ){
+                                ai = *(a + i);
+                                abij[0] += ai * bj;
+                                abij++;
+                        }
+                }
+                a+=mr_alg;
+                b+=nr_alg;
+        }
+
+        for ( i = 0; i < mr_alg * nr_alg; ++i ){ //Scale by alpha
+
+                ab[i]*=*alpha;
+        }
+
+        _Float16 *Cr_l;
+        _Float16 *ab_l=ab;
+
+        if (beta ==0){ // no C loaded from memory
+
+                for ( j = 0; j < nr_alg; ++j ){
+                        Cr_l=&c[j*cs_c];
+                        for ( i = 0; i < mr_alg; ++i ){
+                                *Cr_l=*ab_l;
+                                ab_l++;
+                                Cr_l+=rs_c;
+                        }
+                }
+        }
+        else{ // C loaded from memory and scaled by beta
+
+                for ( j = 0; j < nr_alg; ++j ){
+                        Cr_l=&c[j*cs_c];
+                        for ( i = 0; i < mr_alg; ++i ){
+                                *Cr_l*=*beta;
+                                *Cr_l+=*ab_l;
+                                ab_l++;
+                                Cr_l+=rs_c;
+                        }
+                }
+        }
+}
+
+void hsgemm_ref( int k, int mr_alg, int nr_alg, _Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, float* restrict c, int rs_c, int cs_c)
+{
+        float ab[mr_alg*nr_alg];
+        _Float16 bj, ai;
+        unsigned int l,i,j;
+        for ( i = 0; i < mr_alg * nr_alg ; ++i ){ //set 0s
+
+                *(ab+i)=0;
+        }
+
+        for ( l = 0; l < k; ++l ){
+                float *abij=ab;
+                for ( j = 0; j < nr_alg; ++j ){
+                        bj = *(b + j);
+                        for ( i = 0; i < mr_alg; ++i ){
+                                ai = *(a + i);
+                                abij[0] += ai * bj;
+                                abij++;
+                        }
+                }
+                a+=mr_alg;
+                b+=nr_alg;
+        }
+
+        for ( i = 0; i < mr_alg * nr_alg; ++i ){ //Scale by alpha
+
+                ab[i]*=*alpha;
+        }
+
+        float *Cr_l;
+        float *ab_l=ab;
+
+        if (beta ==0){ // no C loaded from memory
+
+                for ( j = 0; j < nr_alg; ++j ){
+                        Cr_l=&c[j*cs_c];
+                        for ( i = 0; i < mr_alg; ++i ){
+                                *Cr_l=*ab_l;
+                                ab_l++;
+                                Cr_l+=rs_c;
+                        }
+                }
+        }
+        else{ // C loaded from memory and scaled by beta
+
+                for ( j = 0; j < nr_alg; ++j ){
+                        Cr_l=&c[j*cs_c];
+                        for ( i = 0; i < mr_alg; ++i ){
+                                *Cr_l*=*beta;
+                                *Cr_l+=*ab_l;
+                                ab_l++;
+                                Cr_l+=rs_c;
+                        }
+                }
+        }
+}

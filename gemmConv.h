@@ -15,31 +15,47 @@
 #include <stdint.h>
 
 
+#ifdef runtimeBLCKS
+    #define dBLOCK_NR 8
+    #define dBLOCK_MR 6
+    int dBLOCK_MC,
+        dBLOCK_NC,
+        dBLOCK_KC;
+    #define hBLOCK_NR 8
+    #define hBLOCK_MR 24
+    int hBLOCK_MC,
+        hBLOCK_NC,
+        hBLOCK_KC;
+    #define BLOCK_NR 12
+    #define BLOCK_MR 8
+    int BLOCK_MC,
+        BLOCK_NC,
+        BLOCK_KC;
+#else
+    //double precission BLIS block sizes fro ARM A-57
+    #define dBLOCK_NC 3072
+    #define dBLOCK_KC 240
+    #define dBLOCK_MC 120
+    #define dBLOCK_NR 8
+    #define dBLOCK_MR 6
+    #define dMAX_THREAD 4
 
-//double precission BLIS block sizes fro ARM A-57
-#define dBLOCK_NC 3072
-#define dBLOCK_KC 240
-#define dBLOCK_MC 120
-#define dBLOCK_NR 8
-#define dBLOCK_MR 6
-#define dMAX_THREAD 4
+    //simple precission BLIS block sizes fro ARM A-57
+    #define BLOCK_NC 3072
+    #define BLOCK_KC 640
+    #define BLOCK_MC 120
+    #define BLOCK_NR 12
+    #define BLOCK_MR 8
+    #define MAX_THREAD 4
 
-//simple precission BLIS block sizes fro ARM A-57
-#define BLOCK_NC 3072
-#define BLOCK_KC 640
-#define BLOCK_MC 120
-#define BLOCK_NR 12
-#define BLOCK_MR 8
-#define MAX_THREAD 4
-
-//simple precission BLIS block sizes fro ARM A-57
-#define hBLOCK_NC 3072
-#define hBLOCK_KC 640
-#define hBLOCK_MC 120
-#define hBLOCK_NR 24
-#define hBLOCK_MR 16
-#define hMAX_THREAD 4
-
+    //half precission BLIS block sizes for NVIDIA Carmel
+    #define hBLOCK_NC 3072
+    #define hBLOCK_KC 512
+    #define hBLOCK_MC 576
+    #define hBLOCK_NR 8
+    #define hBLOCK_MR 24
+    #define hMAX_THREAD 4
+#endif
 
 /********double precision gemm********/
 void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
@@ -80,21 +96,36 @@ void sPack_B(float *B, unsigned int ldb, float *B_pack, unsigned int k, unsigned
 
 /********Half precision gemm********/
 void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
-		__fp16  alphap,
-		__fp16 * A, unsigned int lda,
-		__fp16 * B, unsigned int ldb,
-		__fp16  betap,
-		__fp16 * C, unsigned int ldc,
+		_Float16  alphap,
+		_Float16 * A, unsigned int lda,
+		_Float16 * B, unsigned int ldb,
+		_Float16  betap,
+		_Float16 * C, unsigned int ldc,
         void * Ac_pack_v, void * Bc_pack_v);
 
+void hsgemm_cust(unsigned int m, unsigned int n, unsigned int k,
+		_Float16 alpha,
+		_Float16 * A, unsigned int lda,
+		_Float16 * B, unsigned int ldb,
+		_Float16 beta,
+		_Float16 * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v, float *spC_work );
+
 //Microkernels
-void hgemm_armv8a_asm_8x24(int k,__fp16* restrict alpha, __fp16* restrict a, __fp16* restrict b, __fp16* restrict beta, __fp16* restrict c, int rs_c, int cs_c);
-void hgemm_ref(int k, int mr_alg, int nr_alg, 	__fp16* restrict alpha, __fp16* restrict a, __fp16* restrict b, __fp16* restrict beta, __fp16* restrict c, int rs_c, int cs_c);
+void hgemm_armv8a_asm_8x24(int k,_Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, _Float16* restrict c, int rs_c, int cs_c);
+void hgemm_armv8a_asm_24x8(int k,_Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, _Float16* restrict c, int rs_c, int cs_c);
+void hsgemm_armv8a_asm_8x12(int k, _Float16* restrict alpha, _Float16* restrict a,  _Float16* restrict b, _Float16* restrict beta, float* restrict c, int rs_c0, int cs_c0);
+void hgemm_ref(int k, int mr_alg, int nr_alg, 	_Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, _Float16* restrict c, int rs_c, int cs_c);
+void hsgemm_ref( int k, int mr_alg, int nr_alg, _Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, float* restrict c, int rs_c, int cs_c);
+
 
 //Packing routines
-void hPack_A(__fp16 *A, unsigned int lda, __fp16 *A_pack, unsigned int m, unsigned int k);
-void hPack_B(__fp16 *B, unsigned int ldb, __fp16 *B_pack, unsigned int k, unsigned int n);
+void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, unsigned int k);
+void hPack_B(_Float16 *B, unsigned int ldb, _Float16 *B_pack, unsigned int k, unsigned int n);
 
+//Precision change routines
+void increasePrecissionV_HS(int  n,  _Float16* restrict buffH, float* restrict buffS);
+void decreasePrecissionV_SH( int n, float* restrict buffS,  _Float16* restrict buffH);
 
 /********simple precision convolution gemm********/
 void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,

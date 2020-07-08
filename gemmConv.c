@@ -333,9 +333,9 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
  * @param[in] m Height of the block to pack.
  * @param[in] k Width of the block to pack.
  */
-void hPack_A(__fp16 *A, unsigned int lda, __fp16 *A_pack, unsigned int m, unsigned int k)
+void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, unsigned int k)
 {
-	__fp16 *A_pack_local;
+	_Float16 *A_pack_local;
 
 	#pragma omp  parallel for private(A_pack_local)
 	for(unsigned int ic=0;ic<m;ic+=hBLOCK_MR){
@@ -365,10 +365,10 @@ void hPack_A(__fp16 *A, unsigned int lda, __fp16 *A_pack, unsigned int m, unsign
  * @param[in] n Width of the block to pack.
  * @param[in] k Height of the block to pack.
  */
-void hPack_B(__fp16 *B, unsigned int ldb, __fp16 *B_pack, unsigned int k, unsigned int n)
+void hPack_B(_Float16 *B, unsigned int ldb, _Float16 *B_pack, unsigned int k, unsigned int n)
 
 {
-	__fp16 *B_pack_local;
+	_Float16 *B_pack_local;
 
 
 	#pragma omp parallel for private(B_pack_local)
@@ -406,24 +406,24 @@ void hPack_B(__fp16 *B, unsigned int ldb, __fp16 *B_pack, unsigned int k, unsign
  * @param[in] Bc_pack_v Workspace for the packing of B (Only ofr allocation purposes).
  */
 void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
-		__fp16 alpha,
-		__fp16 * A, unsigned int lda,
-		__fp16 * B, unsigned int ldb,
-		__fp16 beta,
-		__fp16 * C, unsigned int ldc,
+		_Float16 alpha,
+		_Float16 * A, unsigned int lda,
+		_Float16 * B, unsigned int ldb,
+		_Float16 beta,
+		_Float16 * C, unsigned int ldc,
         void * Ac_pack_v, void * Bc_pack_v ){
             
-	__fp16 *Ac, *Bc;
-	__fp16 *Cc;
-	__fp16 *Ar, *Br;
-	__fp16 *Cr;
-	__fp16 betaInner;
+	_Float16 *Ac, *Bc;
+	_Float16 *Cc;
+	_Float16 *Ar, *Br;
+	_Float16 *Cr;
+	_Float16 betaInner;
 
     
-    __fp16 *Ac_pack=(__fp16 *)Ac_pack_v;
-	__fp16 *Bc_pack=(__fp16 *)Bc_pack_v;
+    _Float16 *Ac_pack=(_Float16 *)Ac_pack_v;
+	_Float16 *Bc_pack=(_Float16 *)Bc_pack_v;
 
-
+//print_matrix( "Cini", m, n, C, ldc );
 	for (unsigned int jc=0; jc<n; jc+=hBLOCK_NC) {
 
 		unsigned int n_alg=fmin(hBLOCK_NC,n-jc);
@@ -436,16 +436,16 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 				betaInner=beta;
 
 			Bc=&B[pc+jc*ldb];
-			sPack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
+			hPack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
 
 			
 			for (unsigned int ic=0; ic<m; ic+=hBLOCK_MC) {
 
 				unsigned int m_alg=fmin(hBLOCK_MC,m-ic);
-				__fp16 *Ac_pack_local=Ac_pack; 
+				_Float16 *Ac_pack_local=Ac_pack; 
 
 				Ac=&A[ic+pc*lda];
-				sPack_A(Ac,lda,(__fp16*)Ac_pack_local,m_alg,k_alg); //PACK A
+				hPack_A(Ac,lda,Ac_pack_local,m_alg,k_alg); //PACK A
 
 				Cc=&C[ic+jc*ldc];
 
@@ -461,13 +461,16 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 
 						if(mr_alg==hBLOCK_MR && nr_alg==hBLOCK_NR)
 						{
-                            //sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-                           // sgemm_armv8a_asm_8x12_v2(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-                            hgemm_armv8a_asm_8x24(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-                            //sgemm_armv8a_neon_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+#ifdef fp16_support
+                            //printf("ir=%d, jr=%d, ic=%d, pc=%d, jc=%d\n",ir,jr,ic,pc,jc);
+                            //print_matrix( "Cc", 8, 24, Cc, ldc );
+                            hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+#else
+                            hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+#endif
 						}
 						else{//Micro-kernel cannot be applied
-							sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+							hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
 						}
 					}
 				}
@@ -477,6 +480,98 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 	}
 }
 
+/** Half precision matrix matrix multiplication (with simple precision accumulation).
+ * 
+ * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects atrices stored in column major order.
+ * 
+ * @param[in] m Number of rows of matrix C and A.
+ * @param[in] n Number of columns of matrix C and B.
+ * @param[in] k Number of columns of matrix A and rows of matrix B.
+ * @param[in] alpha Scalar alpha .
+ * @param[in] A Matrix A.
+ * @param[in] lda Leading dimension of matrix A.
+ * @param[in] B Matrix B.
+ * @param[in] ldB Leading dimension of matrix B.
+ * @param[in] beta Scalar beta. 
+ * @param[in,out] C Matrix C.
+ * @param[in] ldc Leading dimension of matrix C.
+ * @param[in] Ac_pack_v Workspace for the packing of A (Only ofr allocation purposes).
+ * @param[in] Bc_pack_v Workspace for the packing of B (Only ofr allocation purposes).
+ * @param[in] spC_work Workspace to store single precission C intermediate values.
+ */
+void hsgemm_cust(unsigned int m, unsigned int n, unsigned int k,
+		_Float16 alpha,
+		_Float16 * A, unsigned int lda,
+		_Float16 * B, unsigned int ldb,
+		_Float16 beta,
+		_Float16 * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v, float *spC_work ){
+            
+	_Float16 *Ac, *Bc;
+	float *Cc;
+	_Float16 *Ar, *Br;
+	float *Cr;
+	_Float16 betaInner;
+
+    
+    _Float16 *Ac_pack=(_Float16 *)Ac_pack_v;
+	_Float16 *Bc_pack=(_Float16 *)Bc_pack_v;
+
+    if(ldc != m)
+        perror("Alert! [ldc != m] increase precision only suported for vectors");
+    increasePrecissionV_HS(m*n,C,spC_work);
+    
+	for (unsigned int jc=0; jc<n; jc+=BLOCK_NC) {
+
+		unsigned int n_alg=fmin(BLOCK_NC,n-jc);
+		for (unsigned int pc=0; pc<k; pc+=BLOCK_KC) {
+
+			unsigned int k_alg=fmin(BLOCK_KC,k-pc);
+			if (pc >= BLOCK_KC) //Check beta
+				betaInner=1.0;
+			else
+				betaInner=beta;
+
+			Bc=&B[pc+jc*ldb];
+			hPack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
+
+			
+			for (unsigned int ic=0; ic<m; ic+=BLOCK_MC) {
+
+				unsigned int m_alg=fmin(BLOCK_MC,m-ic);
+				_Float16 *Ac_pack_local=Ac_pack; 
+
+				Ac=&A[ic+pc*lda];
+				hPack_A(Ac,lda,(_Float16*)Ac_pack_local,m_alg,k_alg); //PACK A
+
+				Cc=&spC_work[ic+jc*ldc];
+
+
+				#pragma omp  parallel for private(Ar, Br, Cr)
+				for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR){
+					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
+					for(unsigned int ir=0;ir<m_alg;ir+=BLOCK_MR){
+						unsigned int mr_alg=fmin(BLOCK_MR,m_alg-ir);
+						Ar=&Ac_pack_local[ir*k_alg];
+						Br=&Bc_pack[jr*k_alg];
+						Cr=&Cc[ir+jr*ldc];
+
+						if(mr_alg==BLOCK_MR && nr_alg==BLOCK_NR)
+						{
+                            hsgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						}
+						else{//Micro-kernel cannot be applied
+							hsgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						}
+					}
+				}
+
+			}
+		}
+	}
+	
+	decreasePrecissionV_SH(m*n,spC_work,C);
+}
 
 /** Packing of B + im2Col transform
  * 
