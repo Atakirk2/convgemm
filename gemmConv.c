@@ -337,7 +337,7 @@ void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, un
 {
 	_Float16 *A_pack_local;
 
-	#pragma omp  parallel for private(A_pack_local)
+	//#pragma omp  parallel for private(A_pack_local)
 	for(unsigned int ic=0;ic<m;ic+=hBLOCK_MR){
 
 		A_pack_local=&A_pack[ic*k];
@@ -371,7 +371,7 @@ void hPack_B(_Float16 *B, unsigned int ldb, _Float16 *B_pack, unsigned int k, un
 	_Float16 *B_pack_local;
 
 
-	#pragma omp parallel for private(B_pack_local)
+	//#pragma omp parallel for private(B_pack_local)
 	for(unsigned int jc=0;jc<n;jc+=hBLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
@@ -411,73 +411,114 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		_Float16 * B, unsigned int ldb,
 		_Float16 beta,
 		_Float16 * C, unsigned int ldc,
-        void * Ac_pack_v, void * Bc_pack_v ){
+        void * Ac_pack_v, void * Bc_pack_v, struct threadStruct thrSt ){
             
 	_Float16 *Ac, *Bc;
 	_Float16 *Cc;
 	_Float16 *Ar, *Br;
 	_Float16 *Cr;
 	_Float16 betaInner;
+    
+    unsigned jc_start, jc_end,
+             ic_start, ic_end,
+             jr_start, jr_end,
+             ir_start, ir_end;
+    
+#ifndef _OPENMP
+    jc_start = 0;
+    jc_end   = n;
+    ic_start = 0;
+    ic_end   = m;
+    jr_start = 0;
+    ir_start = 0;
+#endif
 
     
     _Float16 *Ac_pack=(_Float16 *)Ac_pack_v;
 	_Float16 *Bc_pack=(_Float16 *)Bc_pack_v;
+    
+    thrSt.threads = thrSt.JC * thrSt.IC * thrSt.JR * thrSt.IR * thrSt.PR;
 
 //print_matrix( "Cini", m, n, C, ldc );
-	for (unsigned int jc=0; jc<n; jc+=hBLOCK_NC) {
+    #pragma omp parallel num_threads(thrSt.threads) private(jc_start, jc_end, ic_start, ic_end, jr_start, jr_end, ir_start, ir_end, betaInner) shared(thrSt,n,m,k, A,B,C, Ac,Bc,Cc, Ac_pack,Bc_pack,alpha, beta,lda,ldb,ldc, Ar, Br, Cr) default(none) 
+    {
 
-		unsigned int n_alg=fmin(hBLOCK_NC,n-jc);
-		for (unsigned int pc=0; pc<k; pc+=hBLOCK_KC) {
-
-			unsigned int k_alg=fmin(hBLOCK_KC,k-pc);
-			if (pc >= hBLOCK_KC) //Check beta
-				betaInner=1.0;
-			else
-				betaInner=beta;
-
-			Bc=&B[pc+jc*ldb];
-			hPack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
-
-			
-			for (unsigned int ic=0; ic<m; ic+=hBLOCK_MC) {
-
-				unsigned int m_alg=fmin(hBLOCK_MC,m-ic);
-				_Float16 *Ac_pack_local=Ac_pack; 
-
-				Ac=&A[ic+pc*lda];
-				hPack_A(Ac,lda,Ac_pack_local,m_alg,k_alg); //PACK A
-
-				Cc=&C[ic+jc*ldc];
-
-
-				#pragma omp  parallel for private(Ar, Br, Cr)
-				for(unsigned jr=0;jr<n_alg;jr+=hBLOCK_NR){
-					unsigned int nr_alg=fmin(hBLOCK_NR,n_alg-jr);
-					for(unsigned int ir=0;ir<m_alg;ir+=hBLOCK_MR){
-						unsigned int mr_alg=fmin(hBLOCK_MR,m_alg-ir);
-						Ar=&Ac_pack_local[ir*k_alg];
-						Br=&Bc_pack[jr*k_alg];
-						Cr=&Cc[ir+jr*ldc];
-
-						if(mr_alg==hBLOCK_MR && nr_alg==hBLOCK_NR)
-						{
-#ifdef fp16_support
-                            //printf("ir=%d, jr=%d, ic=%d, pc=%d, jc=%d\n",ir,jr,ic,pc,jc);
-                            //print_matrix( "Cc", 8, 24, Cc, ldc );
-                            hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-#else
-                            hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+#ifdef _OPENMP     
+        getThreadRange(n, hBLOCK_NC, thrSt.JC, &jc_start,&jc_end);
 #endif
-						}
-						else{//Micro-kernel cannot be applied
-							hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-						}
-					}
-				}
+        //printf("thread:%d, jc_start=%d, jc_end=%d\n",omp_get_thread_num(),jc_start, jc_end);
+        for (unsigned int jc=jc_start; jc<jc_end; jc+=hBLOCK_NC) {
 
-			}
-		}
-	}
+            unsigned int n_alg=fmin(hBLOCK_NC,jc_end-jc);
+            for (unsigned int pc=0; pc<k; pc+=hBLOCK_KC) {
+
+                unsigned int k_alg=fmin(hBLOCK_KC,k-pc);
+                if (pc >= hBLOCK_KC) //Check beta
+                    betaInner=1.0;
+                else
+                    betaInner=beta;
+
+                Bc=&B[pc+jc*ldb];
+                hPack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
+
+#ifdef _OPENMP     
+                getThreadRange(m, hBLOCK_MC, thrSt.IC, &ic_start,&ic_end);
+#endif
+                //printf("thread:%d, ic_start=%d, ic_end=%d\n",omp_get_thread_num(),ic_start, ic_end);
+                for (unsigned int ic=ic_start; ic<ic_end; ic+=hBLOCK_MC) {
+
+                    unsigned int m_alg=fmin(hBLOCK_MC,ic_end-ic);
+                    _Float16 *Ac_pack_local=Ac_pack; 
+
+                    Ac=&A[ic+pc*lda];
+                    hPack_A(Ac,lda,Ac_pack_local,m_alg,k_alg); //PACK A
+
+                    Cc=&C[ic+jc*ldc];
+
+#ifdef _OPENMP     
+                    getThreadRange(n_alg, hBLOCK_NR, thrSt.JR, &jr_start,&jr_end);
+#else
+                    jr_end = n_alg;
+#endif
+                    //printf("thread:%d, jr_start=%d, jr_end=%d\n",omp_get_thread_num(),jr_start, jr_end);
+                    for(unsigned jr=jr_start;jr<jr_end;jr+=hBLOCK_NR){
+                        unsigned int nr_alg=fmin(hBLOCK_NR,jr_end-jr);
+                        
+#ifdef _OPENMP     
+                        getThreadRange(m_alg, hBLOCK_MR, thrSt.IR, &ir_start,&ir_end);
+#else
+                        ir_end = m_alg;
+#endif
+                        //printf("thread:%d, ir_start=%d, ir_end=%d\n",omp_get_thread_num(),ir_start, ir_end);
+                        for(unsigned int ir=ir_start;ir<ir_end;ir+=hBLOCK_MR){
+                            unsigned int mr_alg=fmin(hBLOCK_MR,ir_end-ir);
+                            Ar=&Ac_pack_local[ir*k_alg];
+                            Br=&Bc_pack[jr*k_alg];
+                            Cr=&Cc[ir+jr*ldc];
+
+                            if(mr_alg==hBLOCK_MR && nr_alg==hBLOCK_NR)
+                            {
+    #ifdef fp16_support
+                                //printf("ir=%d, jr=%d, ic=%d, pc=%d, jc=%d\n",ir,jr,ic,pc,jc);
+                               // printf("thread:%d, ir_start=%d, ir_end=%d\n",omp_get_thread_num(),ir_start, ir_end);
+                                //print_matrix( "Cc", 8, 24, Cc, ldc );
+                                hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+    #else
+                                hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+    #endif
+                            }
+                            else{//Micro-kernel cannot be applied
+                                hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                            }
+                        }
+                       // #pragma omp barrier
+                    }
+                   // #pragma omp barrier
+                }
+                #pragma omp barrier
+            }
+        }
+    }
 }
 
 /** Half precision matrix matrix multiplication (with simple precision accumulation).
@@ -763,3 +804,53 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 		}
 	}
 }
+
+#ifdef _OPENMP
+ void getThreadRange(unsigned rangeEnd, unsigned bSize,unsigned nThreads,unsigned *thrStart, unsigned *thrEnd)
+{
+    unsigned blocks,
+             block_left,
+             minBlocks,
+             maxBlocks,
+             extraBlocks,
+             sizeMin,
+             sizeMax,
+             sizeExtra;
+    
+    int thrId =  omp_get_thread_num();
+    
+    
+    if (nThreads == 1)
+    {
+        *thrStart = 0;
+        *thrEnd = rangeEnd;
+    }
+    else
+    {
+        blocks = rangeEnd / bSize;
+        block_left = rangeEnd % bSize;
+
+        minBlocks = blocks / nThreads;
+        extraBlocks = blocks % nThreads;
+        if (extraBlocks != 0)  maxBlocks = minBlocks + 1;
+        
+        sizeMin = minBlocks * bSize;
+        sizeMax = maxBlocks * bSize;
+        
+        if (thrId < extraBlocks) //high load threads
+        {
+            *thrStart = thrId * sizeMax;
+            *thrEnd =  *thrStart + sizeMax;
+        }
+        else // min load threads(upper part of the pool)
+        {
+            sizeExtra = extraBlocks * sizeMax;
+            *thrStart = sizeExtra + (thrId -extraBlocks ) * sizeMin;
+            *thrEnd =  *thrStart + sizeMin;
+            
+            if (thrId == nThreads -1) *thrEnd += block_left;
+        }
+    }
+
+}
+#endif

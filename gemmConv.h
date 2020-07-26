@@ -50,13 +50,28 @@
 
     //half precission BLIS block sizes for NVIDIA Carmel
     #define hBLOCK_NC 3072
-    #define hBLOCK_KC 512
+    #define hBLOCK_KC 512//684
     #define hBLOCK_MC 576
     #define hBLOCK_NR 8
     #define hBLOCK_MR 24
     #define hMAX_THREAD 4
 #endif
 
+       
+/**threading functions ****/
+struct threadStruct{
+    unsigned threads;
+    unsigned JC;
+    unsigned PC;
+    unsigned IC;
+    unsigned JR;
+    unsigned IR;
+    unsigned PR;
+};
+void getThreadRange(unsigned rangeEnd, unsigned bSize,unsigned nThreads,unsigned *thrStart, unsigned *thrEnd);
+
+        
+        
 /********double precision gemm********/
 void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		double  alphap,
@@ -101,7 +116,8 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		_Float16 * B, unsigned int ldb,
 		_Float16  betap,
 		_Float16 * C, unsigned int ldc,
-        void * Ac_pack_v, void * Bc_pack_v);
+        void * Ac_pack_v, void * Bc_pack_v,
+        struct threadStruct thrSt);
 
 void hsgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		_Float16 alpha,

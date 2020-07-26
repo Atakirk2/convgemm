@@ -36,6 +36,7 @@
 double compareMatrix(int m, int n, fpType *M, int ldm, fpType *M2, int ldm2 );
 int print_matrix( char *name, int m, int n, fpType *M, int ldm );
 int print_matrices( int m, int n, char *name, fpType *M, int ldm,  char *name2, fpType *M2, int ldm2);
+void naiveGemm(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack);
 
 int main( int argc, char** argv )
 {
@@ -57,19 +58,33 @@ int main( int argc, char** argv )
 
     fpType norm = 0, normOrig = 0;
     
-    if (argc != 5)
+    struct threadStruct thrSt;
+    thrSt.JC = 1;
+    thrSt.IC = 1;
+    thrSt.JR = 1;
+    thrSt.IR = 1;
+    thrSt.PR = 1;
+    
+    if (argc != 5 && argc != 9)
     {
         printf("Comparison of blis default GEMM and custom GEMM.\n");
         printf("\tm,n,k: Matrix product dimensions.\n");
         printf("\trepe: number of repetitions of the test.\n");
-        printf("Usage: %s <m> <n> <k> <repe>\n", argv[0]);
+        printf("Usage: %s <m> <n> <k> <repe> [<JC> <IC> <JR> <IR>]\n", argv[0]);
         return -1;
     }
 
-    m =atoi(argv[1]);  
-    n =atoi(argv[2]);
+    m = atoi(argv[1]);  
+    n = atoi(argv[2]);
     k = atoi(argv[3]);
-    repe  =atoi(argv[4]);
+    repe = atoi(argv[4]);
+    if(argc == 9)
+    {
+        thrSt.JC = atoi(argv[5]);
+        thrSt.IC = atoi(argv[6]);
+        thrSt.JR = atoi(argv[7]);
+        thrSt.IR = atoi(argv[8]);
+    }
     
     A = (fpType*) malloc(m*k * sizeof(fpType));
     B = (fpType*) malloc(k*n * sizeof(fpType));
@@ -113,6 +128,7 @@ int main( int argc, char** argv )
         increasePrecissionV_HS(k*n,B,Bfloat);
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&fONE,Afloat,1,m,Bfloat,1,k,&fZERO,Cfloat,1,m); 
         decreasePrecissionV_SH(m*n,Cfloat,CBlis);
+        //naiveGemm(m,n,k,1.0,A,m,B,k,0.0,CBlis,m,Ac_pack,Bc_pack);
 #else
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&ONE,A,1,m,B,1,k,&ZERO,CBlis,1,m);
 #endif
@@ -129,7 +145,7 @@ int main( int argc, char** argv )
 #elif fp_HS
         hsgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack, Cfloat);
 #elif fp_H
-        hgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack);
+        hgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack, thrSt);
 #else
         sgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack);
 #endif
@@ -161,8 +177,6 @@ int main( int argc, char** argv )
          }
   #else
          bli_snormfv(m*n,COwn,1,&normOrig);
-         norm = compareMatrix(m,n,COwn, m,CBlis,m);
-         printf("Approximation erro compareMatrix: %g\n",norm);
          bli_ssubm(0,BLIS_NONUNIT_DIAG,BLIS_DENSE,BLIS_NO_TRANSPOSE,m,n,CBlis,1,m,COwn,1,m);
          bli_snormfv(m*n,COwn,1,&norm);
          
@@ -253,4 +267,22 @@ int print_matrices( int m, int n, char *name, fpType *M, int ldm,  char *name2, 
       printf( "   (%d,%d) = %s[%22.15e]    [%22.15e]%s;\n",  i, j,name, (double)M[i +j * ldm], (double)M2[i +j * ldm2],name2);
 
   return 0;
+}
+
+/*Naive gemm for comparison purposes*/
+void naiveGemm(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack)
+{
+    int i,j,z;
+    fpType *AB = (fpType*) malloc(m*n * sizeof(fpType));
+    
+
+    for(j = 0; j < n; j++)
+        for (z = 0; z < k; z++)
+            for (i = 0; i < m; i++)
+                AB[i + j * ldc] += A[i + z * lda] * B[ z + j * ldb];
+            
+    for(j = 0; j < n; j++)
+        for (i = 0; i < m; i++)
+            C[i + j* ldc] = AB[i + j * ldc] + beta * C[i+j*ldc];
+    
 }
