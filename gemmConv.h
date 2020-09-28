@@ -38,23 +38,25 @@
     #define dBLOCK_MC 120
     #define dBLOCK_NR 8
     #define dBLOCK_MR 6
-    #define dMAX_THREAD 4
+    #define dMAX_THREAD 8
 
     //simple precission BLIS block sizes fro ARM A-57
     #define BLOCK_NC 3072
-    #define BLOCK_KC 640
-    #define BLOCK_MC 120
+    #define BLOCK_KC 368
+    #define BLOCK_MC 560
     #define BLOCK_NR 12
     #define BLOCK_MR 8
-    #define MAX_THREAD 4
+    #define MAX_THREAD 8
 
     //half precission BLIS block sizes for NVIDIA Carmel
     #define hBLOCK_NC 3072
-    #define hBLOCK_KC 512//684
+    #define hBLOCK_KC 672
     #define hBLOCK_MC 576
     #define hBLOCK_NR 8
     #define hBLOCK_MR 24
-    #define hMAX_THREAD 4
+    #define hSUBB_NR 8
+    #define hSUBB_MR 8
+    #define hMAX_THREAD 8
 #endif
 
        
@@ -130,6 +132,7 @@ void hsgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 //Microkernels
 void hgemm_armv8a_asm_8x24(int k,_Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, _Float16* restrict c, int rs_c, int cs_c);
 void hgemm_armv8a_asm_24x8(int k,_Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, _Float16* restrict c, int rs_c, int cs_c);
+void hgemm_armv8a_asm_8x8(int k,_Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, _Float16* restrict c, int rs_c, int cs_c);
 void hsgemm_armv8a_asm_8x12(int k, _Float16* restrict alpha, _Float16* restrict a,  _Float16* restrict b, _Float16* restrict beta, float* restrict c, int rs_c0, int cs_c0);
 void hgemm_ref(int k, int mr_alg, int nr_alg, 	_Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, _Float16* restrict c, int rs_c, int cs_c);
 void hsgemm_ref( int k, int mr_alg, int nr_alg, _Float16* restrict alpha, _Float16* restrict a, _Float16* restrict b, _Float16* restrict beta, float* restrict c, int rs_c, int cs_c);
@@ -156,3 +159,16 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * res
                  unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
                  unsigned int kh, unsigned int kw, unsigned int stride);
             
+
+/********half precision convolution gemm********/
+void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+		_Float16 alpha, _Float16 * A, 
+        unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
+		_Float16 * In, _Float16 beta,
+		_Float16 * C,
+        _Float16 * Ac_pack, _Float16 * Bc_pack );
+
+//Packing routine
+void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float16 * restrict B_pack, unsigned int k, unsigned int n,             
+                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
+                 unsigned int kh, unsigned int kw, unsigned int stride);
