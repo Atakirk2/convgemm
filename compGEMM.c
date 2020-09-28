@@ -21,16 +21,28 @@
 #ifdef fp_D
     #define fpType double
     #define EPS 1e-16
+    #define B_MC dBLOCK_MC
+    #define B_NC dBLOCK_NC
+    #define B_KC dBLOCK_KC
 #elif fp_H
     #define fpType _Float16
     #define EPS 5e-4
+    #define B_MC hBLOCK_MC
+    #define B_NC hBLOCK_NC
+    #define B_KC hBLOCK_KC
 #elif fp_HS
     #define fpType _Float16
     #define fp_H 1
     #define EPS 5e-4
+    #define B_MC hBLOCK_MC
+    #define B_NC hBLOCK_NC
+    #define B_KC hBLOCK_KC
 #else
     #define fpType float
     #define EPS 6e-8
+    #define B_MC BLOCK_MC
+    #define B_NC BLOCK_NC
+    #define B_KC BLOCK_KC
 #endif
 
 double compareMatrix(int m, int n, fpType *M, int ldm, fpType *M2, int ldm2 );
@@ -43,6 +55,8 @@ int main( int argc, char** argv )
     double tBlis, tOwn, tIni,
             gflopsBlis, gflopsOwn;
             
+    char* precision;
+    
     fpType ONE = 1, ZERO = 0;
     
     int i,
@@ -98,8 +112,8 @@ int main( int argc, char** argv )
     Cfloat = (float*) malloc(m*n * sizeof(float));
 #endif
     
-    Ac_pack = (fpType*) aligned_alloc(4096,BLOCK_MC*BLOCK_KC*sizeof(fpType));
-    Bc_pack = (fpType*) aligned_alloc(4096,BLOCK_KC*BLOCK_NC*sizeof(fpType));
+    Ac_pack = (fpType*) aligned_alloc(4096,B_MC*B_KC*sizeof(fpType));
+    Bc_pack = (fpType*) aligned_alloc(4096,B_KC*B_NC*sizeof(fpType));
     
 
 #ifdef fp_D
@@ -197,18 +211,23 @@ int main( int argc, char** argv )
     gflopsOwn = ( 2.0 * m * k * n ) / ( tOwn * 1.0e9 );
     
 #ifdef fp_D
-        printf("Precision: double\n");
+        //printf("Precision: double\n");
+        precision = "double";
 #elif fp_HS
-        printf("Precision: half with simple precission accumulation\n");
+        //printf("Precision: half with simple precission accumulation\n");
+        precision = "half with simple precission accumulation";
 #elif fp_H
-        printf("Precision: half\n");
+        //printf("Precision: half\n");
+        precision = "half";
 #else
-        printf("Precision: simple\n");
+        //printf("Precision: simple\n");
+        precision = "single";
 #endif
         
-    printf("BLIS Time: %.3f GFlops: %.3f\n",tBlis,gflopsBlis);
-    printf("Custom Time: %.3f GFlops: %.3f\n",tOwn,gflopsOwn);
+   // printf("BLIS Time: %.3f GFlops: %.3f\n",tBlis,gflopsBlis);
+    //printf("Custom Time: %.3f GFlops: %.3f\n",tOwn,gflopsOwn);
     
+    printf("Prec[%s],Size[%d,%d,%d],BLIS[T=%.4f,P=%.3f],Custom[T=%.4f,P=%.3f]\n",precision,m,n,k,tBlis,gflopsBlis,tOwn,gflopsOwn);
     
     free(A);
     free(B);
