@@ -181,18 +181,21 @@ void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 void sPack_A(float *A, unsigned int lda, float *A_pack, unsigned int m, unsigned int k)
 {
 	float *A_pack_local;
-
+    unsigned int skipPos;
+    
 	#pragma omp  parallel for private(A_pack_local)
 	for(unsigned int ic=0;ic<m;ic+=BLOCK_MR){
 
 		A_pack_local=&A_pack[ic*k];
 		unsigned int m_alg=fmin(BLOCK_MR,m-ic);
+        skipPos =BLOCK_MR - m_alg;
 		for(unsigned int pc=0;pc<k;pc++){
 
 			for(unsigned int ir=0;ir<m_alg;ir++){
-				A_pack_local[0]=A[(ic+ir)+pc*lda];
-				A_pack_local++;
-			}
+                    A_pack_local[0]=A[(ic+ir)+pc*lda];
+                    A_pack_local++;
+            }
+            A_pack_local+=skipPos;
 		}
 
 	}
@@ -214,19 +217,21 @@ void sPack_B(float *B, unsigned int ldb, float *B_pack, unsigned int k, unsigned
 
 {
 	float *B_pack_local;
-
+    unsigned int skipPos;
 
 	#pragma omp parallel for private(B_pack_local)
 	for(unsigned int jc=0;jc<n;jc+=BLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
 		unsigned int n_alg=fmin(BLOCK_NR,n-jc);
+        skipPos =BLOCK_NR - n_alg;
 		for(unsigned int pc=0;pc<k;pc++){
 
 			for(unsigned int jr=0;jr<n_alg;jr++){
 				B_pack_local[0]=B[pc+jc*ldb+jr*ldb];
 				B_pack_local++;
 			}
+            B_pack_local+=skipPos;
 		}
 
 	}
@@ -262,13 +267,14 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 	float *Cc;
 	float *Ar, *Br;
 	float *Cr;
-	float betaInner;
-
+	float betaInner, zero =0.0;
+    
     
     float *Ac_pack=(float *)Ac_pack_v;
 	float *Bc_pack=(float *)Bc_pack_v;
-
-
+    float CBuff[BLOCK_MR*BLOCK_NR];
+    bli_sset0s_mxn(BLOCK_MR,BLOCK_NR,CBuff,1,BLOCK_MR);
+    
 	for (unsigned int jc=0; jc<n; jc+=BLOCK_NC) {
 
 		unsigned int n_alg=fmin(BLOCK_NC,n-jc);
@@ -294,8 +300,9 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 
 				Cc=&C[ic+jc*ldc];
 
+                
 
-				#pragma omp  parallel for private(Ar, Br, Cr)
+				#pragma omp  parallel for private(Ar, Br, Cr,CBuff)
 				for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR){
 					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
 					for(unsigned int ir=0;ir<m_alg;ir+=BLOCK_MR){
@@ -307,11 +314,13 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 						if(mr_alg==BLOCK_MR && nr_alg==BLOCK_NR)
 						{
                             //sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-                            sgemm_armv8a_asm_8x12_v2(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                            sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
                             //sgemm_armv8a_neon_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
 						}
 						else{//Micro-kernel cannot be applied
-							sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+                            sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&zero,CBuff,1,BLOCK_MR);
+                            bli_sssxpbys_mxn(mr_alg,nr_alg,CBuff,1,BLOCK_MR,&betaInner,Cr,1,ldc);
+							//sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
 						}
 					}
 				}

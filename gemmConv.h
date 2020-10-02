@@ -13,6 +13,7 @@
 #include <string.h>
 #include <omp.h>
 #include <stdint.h>
+#include <blis.h>
 
 
 #ifdef runtimeBLCKS
@@ -40,10 +41,10 @@
     #define dBLOCK_MR 6
     #define dMAX_THREAD 8
 
-    //simple precission BLIS block sizes fro ARM A-57
+    //simple precission BLIS block sizes for NVIDIA Carmel//ARM A-57
     #define BLOCK_NC 3072
-    #define BLOCK_KC 368
-    #define BLOCK_MC 560
+    #define BLOCK_KC 368//640
+    #define BLOCK_MC 560//120
     #define BLOCK_NR 12
     #define BLOCK_MR 8
     #define MAX_THREAD 8
