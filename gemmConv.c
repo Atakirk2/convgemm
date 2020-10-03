@@ -183,7 +183,7 @@ void sPack_A(float *A, unsigned int lda, float *A_pack, unsigned int m, unsigned
 	float *A_pack_local;
     unsigned int skipPos;
     
-	#pragma omp  parallel for private(A_pack_local)
+	#pragma omp  parallel for private(A_pack_local,skipPos)
 	for(unsigned int ic=0;ic<m;ic+=BLOCK_MR){
 
 		A_pack_local=&A_pack[ic*k];
@@ -219,7 +219,7 @@ void sPack_B(float *B, unsigned int ldb, float *B_pack, unsigned int k, unsigned
 	float *B_pack_local;
     unsigned int skipPos;
 
-	#pragma omp parallel for private(B_pack_local)
+	#pragma omp parallel for private(B_pack_local,skipPos)
 	for(unsigned int jc=0;jc<n;jc+=BLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
@@ -342,7 +342,8 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
  * @param[in] m Height of the block to pack.
  * @param[in] k Width of the block to pack.
  */
-void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, unsigned int k)
+//Double microkernel version
+/*void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, unsigned int k)
 {
 	_Float16 *A_pack_local;
 
@@ -375,8 +376,29 @@ void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, un
             }
         }
     }
-}
+}*/ 
+void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, unsigned int k)
+{
+	_Float16 *A_pack_local;
+    unsigned int skipPos;
+    
+	#pragma omp  parallel for private(A_pack_local,skipPos)
+	for(unsigned int ic=0;ic<m;ic+=hBLOCK_MR){
 
+		A_pack_local=&A_pack[ic*k];
+		unsigned int m_alg=fmin(hBLOCK_MR,m-ic);
+        skipPos =hBLOCK_MR - m_alg;
+		for(unsigned int pc=0;pc<k;pc++){
+
+			for(unsigned int ir=0;ir<m_alg;ir++){
+                    A_pack_local[0]=A[(ic+ir)+pc*lda];
+                    A_pack_local++;
+            }
+            A_pack_local+=skipPos;
+		}
+
+	}
+}
 
 /** Packing of half precision matrix B.
  * 
@@ -393,22 +415,43 @@ void hPack_B(_Float16 *B, unsigned int ldb, _Float16 *B_pack, unsigned int k, un
 
 {
 	_Float16 *B_pack_local;
+    unsigned int skipPos;
 
-
-	#pragma omp parallel for private(B_pack_local)
+	#pragma omp parallel for private(B_pack_local, skipPos)
 	for(unsigned int jc=0;jc<n;jc+=hBLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
 		unsigned int n_alg=fmin(hBLOCK_NR,n-jc);
+        skipPos =hBLOCK_NR - n_alg;
 		for(unsigned int pc=0;pc<k;pc++){
 
 			for(unsigned int jr=0;jr<n_alg;jr++){
 				B_pack_local[0]=B[pc+jc*ldb+jr*ldb];
 				B_pack_local++;
 			}
+            B_pack_local+=skipPos;
 		}
 
 	}
+}
+
+void hxpbys_mxn(unsigned int m,unsigned int n, _Float16* restrict X, unsigned int ldx, _Float16* restrict beta, _Float16* restrict Y,unsigned int ldy)
+{
+    unsigned int i,j;
+    
+    for(j = 0; j < n; j++)
+        for(i = 0; i < m; i++)
+            *(Y + i + j * ldy) = *(X + i + j * ldx) + *beta * *(Y + i + j * ldy);
+}
+
+void hset0s_mxn(unsigned int m,unsigned int n,_Float16* restrict M,unsigned int ldm)
+{
+    unsigned int i,j;
+    
+    #pragma omp parallel for private(i)
+    for(j = 0; j < n; j++)
+        for(i = 0; i < m; i++)
+            *(M + i + j* ldm) = 0;
 }
 
 /** Half precision matrix matrix multiplication.
@@ -441,7 +484,7 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 	_Float16 *Cc;
 	_Float16 *Ar, *Br;
 	_Float16 *Cr;
-	_Float16 betaInner;
+	_Float16 betaInner, zero = 0.0;
     
     unsigned jc_start, jc_end,
              ic_start, ic_end,
@@ -461,6 +504,8 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
     
     _Float16 *Ac_pack=(_Float16 *)Ac_pack_v;
 	_Float16 *Bc_pack=(_Float16 *)Bc_pack_v;
+    _Float16 CBuff[hBLOCK_MR*hBLOCK_NR];
+    hset0s_mxn(hBLOCK_MR,hBLOCK_NR,CBuff,hBLOCK_MR);
     
 //    thrSt.threads = thrSt.JC * thrSt.IC * thrSt.JR * thrSt.IR * thrSt.PR;
 
@@ -505,7 +550,7 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
                     jr_end = n_alg;
 /*#endif
                     //printf("thread:%d, jr_start=%d, jr_end=%d\n",omp_get_thread_num(),jr_start, jr_end);*/
-                    #pragma omp parallel for  private(Ar, Br, Cr, ir_end) 
+                    #pragma omp parallel for  private(Ar, Br, Cr, ir_end, CBuff) 
                     for(unsigned jr=jr_start;jr<jr_end;jr+=hBLOCK_NR){
                         unsigned int nr_alg=fmin(hBLOCK_NR,jr_end-jr);
 /*#ifdef _OPENMP     
@@ -531,7 +576,7 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
                                 hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
     #endif
                             }
-                            else if(nr_alg==hSUBB_NR)
+                            /*else if(nr_alg==hSUBB_NR)
                             {
                                 for(unsigned int subIr=0; subIr < mr_alg;subIr+=hSUBB_MR)
                                 {
@@ -551,7 +596,12 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
                             }
                             else{ ///Micro-kernel cannot be applied
                                 hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-                            }
+                            }*/
+                            else{//Micro-kernel cannot be applied
+                                hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&zero,CBuff,1,hBLOCK_MR);
+                                hxpbys_mxn(mr_alg,nr_alg,CBuff,hBLOCK_MR,&betaInner,Cr,ldc);
+							//sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						}
                         }
                        // #pragma omp barrier
                     }
