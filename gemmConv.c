@@ -743,7 +743,7 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
     
     unsigned int jc,pc,jr; //loop control indexes
 	float * restrict B_pack_local;
-    
+    unsigned int skipPos;
     ic = i/kSize;
     ikw_ini = (i%kSize)/kh;
     ikh_ini = (i%kSize)%kh;
@@ -751,12 +751,13 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
 
 
 
-    #pragma omp parallel for private(B_pack_local, j_local,pc,jr,ib,ih_ini, iw_ini, pos_ib_ini,pos_ic,ikw,pos_ic_ikw,ikh,pos_ib,iw,ih,pos) firstprivate(j)
+    #pragma omp parallel for private(B_pack_local,skipPos, j_local,pc,jr,ib,ih_ini, iw_ini, pos_ib_ini,pos_ic,ikw,pos_ic_ikw,ikh,pos_ib,iw,ih,pos) firstprivate(j)
 	for(jc=0;jc<n;jc+=BLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
 		unsigned int n_alg=fmin(BLOCK_NR,n-jc);
-        
+        skipPos =BLOCK_NR - n_alg;
+         
         j_local = j +jc;
         ib = j_local/cSize;
         iw_ini = (j_local%(cSize))/h;
@@ -804,6 +805,7 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
                 B_pack_local[0]=In[pos];
 				B_pack_local++;
 			}
+			B_pack_local+=skipPos;
 		}
         //ih_ini = ih;
         //iw_ini = iw;
@@ -843,7 +845,7 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 	float *Cc;
 	float *Ar, *Br;
 	float *Cr;
-	float betaInner;
+	float betaInner, zero =0.0;
 
     unsigned int m = kn,
                  n = h*w*b,
@@ -851,6 +853,10 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
           
     unsigned int lda= kn,
                  ldc= kn;
+                 
+    
+    float CBuff[BLOCK_MR*BLOCK_NR];
+    bli_sset0s_mxn(BLOCK_MR,BLOCK_NR,CBuff,1,BLOCK_MR);
     
 	for (unsigned int jc=0; jc<n; jc+=BLOCK_NC) {
 
@@ -887,8 +893,10 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 
 						if(mr_alg==BLOCK_MR && nr_alg==BLOCK_NR)
                             sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-						else//Micro-kernel cannot be applied
-							sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						else{//Micro-kernel cannot be applied
+                            sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&zero,CBuff,1,BLOCK_MR);
+                            bli_sssxpbys_mxn(mr_alg,nr_alg,CBuff,1,BLOCK_MR,&betaInner,Cr,1,ldc);
+                        }
 					}
 				}
 
@@ -934,6 +942,7 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
     
     unsigned int jc,pc,jr; //loop control indexes
 	_Float16 * restrict B_pack_local;
+    unsigned int skipPos;
     
     ic = i/kSize;
     ikw_ini = (i%kSize)/kh;
@@ -942,11 +951,12 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
 
 
 
-    #pragma omp parallel for private(B_pack_local, j_local,pc,jr,ib,ih_ini, iw_ini, pos_ib_ini,pos_ic,ikw,pos_ic_ikw,ikh,pos_ib,iw,ih,pos) firstprivate(j)
+    #pragma omp parallel for private(B_pack_local, skipPos, j_local,pc,jr,ib,ih_ini, iw_ini, pos_ib_ini,pos_ic,ikw,pos_ic_ikw,ikh,pos_ib,iw,ih,pos) firstprivate(j)
 	for(jc=0;jc<n;jc+=hBLOCK_NR){
 
 		B_pack_local=&B_pack[jc*k];
 		unsigned int n_alg=fmin(hBLOCK_NR,n-jc);
+        skipPos =hBLOCK_NR - n_alg;
         
         j_local = j +jc;
         ib = j_local/cSize;
@@ -995,6 +1005,7 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
                 B_pack_local[0]=In[pos];
 				B_pack_local++;
 			}
+			B_pack_local+=skipPos;
 		}
         //ih_ini = ih;
         //iw_ini = iw;
@@ -1034,7 +1045,7 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 	_Float16 *Cc;
 	_Float16 *Ar, *Br;
 	_Float16 *Cr;
-	_Float16 betaInner;
+	_Float16 betaInner, zero =  0.0;
 
     unsigned int m = kn,
                  n = h*w*b,
@@ -1043,6 +1054,9 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
     unsigned int lda= kn,
                  ldc= kn;
     
+    _Float16 CBuff[hBLOCK_MR*hBLOCK_NR];
+    hset0s_mxn(hBLOCK_MR,hBLOCK_NR,CBuff,hBLOCK_MR);
+                 
 	for (unsigned int jc=0; jc<n; jc+=hBLOCK_NC) {
 
 		unsigned int n_alg=fmin(hBLOCK_NC,n-jc);
@@ -1087,7 +1101,7 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
                                 hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
     #endif
                             }
-                            else if(nr_alg==hSUBB_NR)
+                            /*else if(nr_alg==hSUBB_NR)
                             {
                                 for(unsigned int subIr=0; subIr < mr_alg;subIr+=hSUBB_MR)
                                 {
@@ -1107,7 +1121,12 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
                             }
                             else{ ///Micro-kernel cannot be applied
                                 hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-                            }
+                            }*/
+                            else{//Micro-kernel cannot be applied
+                                hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&zero,CBuff,1,hBLOCK_MR);
+                                hxpbys_mxn(mr_alg,nr_alg,CBuff,hBLOCK_MR,&betaInner,Cr,ldc);
+							//sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						}
                     }
 				}
 
