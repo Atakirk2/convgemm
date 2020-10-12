@@ -706,6 +706,191 @@ void hsgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 	decreasePrecissionV_SH(m*n,spC_work,C);
 }
 
+
+/** Packing of  int16 matrix A .
+ * 
+ * Packs a block of matrix A into a buffer A_pack in the proper data arrengment 
+ *  that the microkernel needs.
+ * 
+ * @param[in] A Pointer pointing to the position of A to start packing.
+ * @param[in] lda Leading dimension of matrix a.
+ * @param[in] A_pack Buffer containing the portion of A packed.
+ * @param[in] m Height of the block to pack.
+ * @param[in] k Width of the block to pack.
+ */
+void i16Pack_A(int16_t *A, unsigned int lda, int16_t *A_pack, unsigned int m, unsigned int k)
+{
+	int16_t *A_pack_local;
+    unsigned int skipPos;
+    
+	#pragma omp  parallel for private(A_pack_local,skipPos)
+	for(unsigned int ic=0;ic<m;ic+=hBLOCK_MR){
+
+		A_pack_local=&A_pack[ic*k];
+		unsigned int m_alg=fmin(hBLOCK_MR,m-ic);
+        skipPos =hBLOCK_MR - m_alg;
+		for(unsigned int pc=0;pc<k;pc++){
+
+			for(unsigned int ir=0;ir<m_alg;ir++){
+                    A_pack_local[0]=A[(ic+ir)+pc*lda];
+                    A_pack_local++;
+            }
+            A_pack_local+=skipPos;
+		}
+
+	}
+}
+
+
+/** Packing of int16 matrix B.
+ * 
+ * Packs a block of matrix B into a buffer B_pack in the proper data arrengment 
+ *  that the microkernel needs.
+ * 
+ * @param[in] B Pointer pointing to the position of B to start packing.
+ * @param[in] ldb Leading dimension of matrix B.
+ * @param[out] B_pack Buffer containing the portion of B packed.
+ * @param[in] n Width of the block to pack.
+ * @param[in] k Height of the block to pack.
+ */
+void i16Pack_B(int16_t *B, unsigned int ldb, int16_t *B_pack, unsigned int k, unsigned int n)
+
+{
+	int16_t *B_pack_local;
+    unsigned int skipPos;
+
+	#pragma omp parallel for private(B_pack_local,skipPos)
+	for(unsigned int jc=0;jc<n;jc+=hBLOCK_NR){
+
+		B_pack_local=&B_pack[jc*k];
+		unsigned int n_alg=fmin(hBLOCK_NR,n-jc);
+        skipPos =hBLOCK_NR - n_alg;
+		for(unsigned int pc=0;pc<k;pc++){
+
+			for(unsigned int jr=0;jr<n_alg;jr++){
+				B_pack_local[0]=B[pc+jc*ldb+jr*ldb];
+				B_pack_local++;
+			}
+            B_pack_local+=skipPos;
+		}
+
+	}
+}
+
+
+void i16xpbys_mxn(unsigned int m,unsigned int n, int16_t* restrict X, unsigned int ldx, int16_t* restrict beta, int16_t* restrict Y,unsigned int ldy)
+{
+    unsigned int i,j;
+    
+    for(j = 0; j < n; j++)
+        for(i = 0; i < m; i++)
+            *(Y + i + j * ldy) = *(X + i + j * ldx) + *beta * *(Y + i + j * ldy);
+}
+
+
+void i16set0s_mxn(unsigned int m,unsigned int n,int16_t* restrict M,unsigned int ldm)
+{
+    unsigned int i,j;
+    
+    #pragma omp parallel for private(i)
+    for(j = 0; j < n; j++)
+        for(i = 0; i < m; i++)
+            *(M + i + j* ldm) = 0;
+}
+
+
+/** Int16 matrix matrix multiplication.
+ * 
+ * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects matrices stored in column major order.
+ * 
+ * @param[in] m Number of rows of matrix C and A.
+ * @param[in] n Number of columns of matrix C and B.
+ * @param[in] k Number of columns of matrix A and rows of matrix B.
+ * @param[in] alpha Scalar alpha .
+ * @param[in] A Matrix A.
+ * @param[in] lda Leading dimension of matrix A.
+ * @param[in] B Matrix B.
+ * @param[in] ldB Leading dimension of matrix B.
+ * @param[in] beta Scalar beta. 
+ * @param[in,out] C Matrix C.
+ * @param[in] ldc Leading dimension of matrix C.
+ * @param[in] Ac_pack_v Workspace for the packing of A (Only ofr allocation purposes).
+ * @param[in] Bc_pack_v Workspace for the packing of B (Only ofr allocation purposes).
+ */
+void i16gemm_cust(unsigned int m, unsigned int n, unsigned int k,
+		int16_t alpha,
+		int16_t * A, unsigned int lda,
+		int16_t * B, unsigned int ldb,
+		int16_t beta,
+		int16_t * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v ){
+            
+	int16_t *Ac, *Bc;
+	int16_t *Cc;
+	int16_t *Ar, *Br;
+	int16_t *Cr;
+	int16_t betaInner, zero =0;
+    
+    
+    int16_t *Ac_pack=(int16_t *)Ac_pack_v;
+	int16_t *Bc_pack=(int16_t *)Bc_pack_v;
+    int16_t CBuff[hBLOCK_MR*hBLOCK_NR];
+    i16set0s_mxn(hBLOCK_MR,hBLOCK_NR,CBuff,hBLOCK_MR);
+    
+	for (unsigned int jc=0; jc<n; jc+=hBLOCK_NC) {
+
+		unsigned int n_alg=fmin(hBLOCK_NC,n-jc);
+		for (unsigned int pc=0; pc<k; pc+=hBLOCK_KC) {
+
+			unsigned int k_alg=fmin(hBLOCK_KC,k-pc);
+			if (pc >= hBLOCK_KC) //Check beta
+				betaInner=1;
+			else
+				betaInner=beta;
+
+			Bc=&B[pc+jc*ldb];
+			i16Pack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
+
+			
+			for (unsigned int ic=0; ic<m; ic+=hBLOCK_MC) {
+
+				unsigned int m_alg=fmin(hBLOCK_MC,m-ic);
+				int16_t *Ac_pack_local=Ac_pack; 
+
+				Ac=&A[ic+pc*lda];
+				i16Pack_A(Ac,lda,(int16_t*)Ac_pack_local,m_alg,k_alg); //PACK A
+
+				Cc=&C[ic+jc*ldc];
+
+                
+
+				#pragma omp  parallel for private(Ar, Br, Cr,CBuff)
+				for(unsigned jr=0;jr<n_alg;jr+=hBLOCK_NR){
+					unsigned int nr_alg=fmin(hBLOCK_NR,n_alg-jr);
+					for(unsigned int ir=0;ir<m_alg;ir+=hBLOCK_MR){
+						unsigned int mr_alg=fmin(hBLOCK_MR,m_alg-ir);
+						Ar=&Ac_pack_local[ir*k_alg];
+						Br=&Bc_pack[jr*k_alg];
+						Cr=&Cc[ir+jr*ldc];
+
+						if(mr_alg==hBLOCK_MR && nr_alg==hBLOCK_NR)
+						{
+                            i16gemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+
+						}
+						else{//Micro-kernel cannot be applied
+                             i16gemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&zero,CBuff,1,hBLOCK_MR);
+                            i16xpbys_mxn(mr_alg,nr_alg,CBuff,hBLOCK_MR,&betaInner,Cr,ldc);
+						}
+					}
+				}
+
+			}
+		}
+	}
+}
+
+
 /** Packing of B + im2Col transform
  * 
  * Packs matrix B = im2Col(In) into the buffer B_pack in the proper data arrengment 

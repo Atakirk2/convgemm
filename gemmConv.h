@@ -147,6 +147,30 @@ void hPack_B(_Float16 *B, unsigned int ldb, _Float16 *B_pack, unsigned int k, un
 void increasePrecissionV_HS(int  n,  _Float16* restrict buffH, float* restrict buffS);
 void decreasePrecissionV_SH( int n, float* restrict buffS,  _Float16* restrict buffH);
 
+//Auxiliar routines
+void hxpbys_mxn(unsigned int m,unsigned int n, _Float16* restrict X, unsigned int ldx, _Float16* restrict beta, _Float16* restrict Y,unsigned int ldy);
+void hset0s_mxn(unsigned int m,unsigned int n,_Float16* restrict M,unsigned int ldm);
+
+/************************** int16 gemm *****************************/
+void i16gemm_cust(unsigned int m, unsigned int n, unsigned int k,
+		int16_t alpha,
+		int16_t * A, unsigned int lda,
+		int16_t * B, unsigned int ldb,
+		int16_t beta,
+		int16_t * C, unsigned int ldc,
+        void * Ac_pack_v, void * Bc_pack_v );
+
+//Microkernel
+void i16gemm_armv8a_asm_24x8( dim_t k0, int16_t* restrict alpha, int16_t* restrict a, int16_t* restrict b, int16_t* restrict beta, int16_t* restrict c, inc_t rs_c0, inc_t cs_c0);
+
+//Packing routines
+void i16Pack_A(int16_t *A, unsigned int lda, int16_t *A_pack, unsigned int m, unsigned int k);
+void i16Pack_B(int16_t *B, unsigned int ldb, int16_t *B_pack, unsigned int k, unsigned int n);
+
+//Auxiliar routines
+void i16xpbys_mxn(unsigned int m,unsigned int n, int16_t* restrict X, unsigned int ldx, int16_t* restrict beta, int16_t* restrict Y,unsigned int ldy);
+void i16set0s_mxn(unsigned int m,unsigned int n,int16_t* restrict M,unsigned int ldm);
+
 /********simple precision convolution gemm********/
 void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		float alpha, float * A, 
