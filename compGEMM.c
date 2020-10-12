@@ -37,6 +37,12 @@
     #define B_MC hBLOCK_MC
     #define B_NC hBLOCK_NC
     #define B_KC hBLOCK_KC
+#elif i_16
+    #define fpType int16_t
+    #define EPS 5e-4
+    #define B_MC hBLOCK_MC
+    #define B_NC hBLOCK_NC
+    #define B_KC hBLOCK_KC
 #else
     #define fpType float
     #define EPS 6e-8
@@ -48,7 +54,8 @@
 double compareMatrix(int m, int n, fpType *M, int ldm, fpType *M2, int ldm2 );
 int print_matrix( char *name, int m, int n, fpType *M, int ldm );
 int print_matrices( int m, int n, char *name, fpType *M, int ldm,  char *name2, fpType *M2, int ldm2);
-void naiveGemm(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack);
+void gemm_naive(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack);
+void irandm(unsigned int m, unsigned int n, fpType *M,unsigned int ldm);
 
 int main( int argc, char** argv )
 {
@@ -125,6 +132,9 @@ int main( int argc, char** argv )
     decreasePrecissionV_SH(m*k,Afloat,A);
     bli_srandm( 0, BLIS_DENSE, k, n, Bfloat, 1, k );
     decreasePrecissionV_SH(k*n,Bfloat,B);    
+#elif i_16
+    irandm( m, k, A, m );
+    irandm( k, n, B, k );
 #else
     bli_srandm( 0, BLIS_DENSE, m, k, A, 1, m );
     bli_srandm( 0, BLIS_DENSE, k, n, B, 1, k );
@@ -143,6 +153,8 @@ int main( int argc, char** argv )
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&fONE,Afloat,1,m,Bfloat,1,k,&fZERO,Cfloat,1,m); 
         decreasePrecissionV_SH(m*n,Cfloat,CBlis);
         //naiveGemm(m,n,k,1.0,A,m,B,k,0.0,CBlis,m,Ac_pack,Bc_pack);
+#elif i_16
+        gemm_naive(m,n,k,1,A,m,B,k,0,CBlis,m,Ac_pack,Bc_pack);
 #else
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&ONE,A,1,m,B,1,k,&ZERO,CBlis,1,m);
 #endif
@@ -160,6 +172,8 @@ int main( int argc, char** argv )
         hsgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack, Cfloat);
 #elif fp_H
         hgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack, thrSt);
+#elif i_16
+        i16gemm_cust(m,n,k,1,A,m,B,k,0,COwn,m,Ac_pack,Bc_pack);
 #else
         sgemm_cust(m,n,k,1.0,A,m,B,k,0.0,COwn,m,Ac_pack,Bc_pack);
 #endif
@@ -183,6 +197,16 @@ int main( int argc, char** argv )
         //print_matrices( m, n,  "Own", COwn, m, "Blis", CBlis, m);
       
         
+        printf("Approximation error: %g\n",(double)norm);
+         if (norm > EPS)
+         {
+             printf("Error threshold exceeded\n");
+            // exit(1);
+         }
+  #elif i_16
+        norm = compareMatrix(m,n,COwn, m,CBlis,m);
+        //print_matrices( m, n,  "Own", COwn, m, "Blis", CBlis, m);
+
         printf("Approximation error: %g\n",(double)norm);
          if (norm > EPS)
          {
@@ -291,7 +315,7 @@ int print_matrices( int m, int n, char *name, fpType *M, int ldm,  char *name2, 
 }
 
 /*Naive gemm for comparison purposes*/
-void naiveGemm(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack)
+void gemm_naive(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack)
 {
     int i,j,z;
     fpType *AB = (fpType*) malloc(m*n * sizeof(fpType));
@@ -306,4 +330,13 @@ void naiveGemm(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsig
         for (i = 0; i < m; i++)
             C[i + j* ldc] = AB[i + j * ldc] + beta * C[i+j*ldc];
     
+}
+
+void irandm(unsigned int m, unsigned int n, fpType *M,unsigned int ldm)
+{
+    int i,j;
+    
+    for ( j=0; j<n; j++ )
+        for ( i=0; i<m; i++ )
+            M[i+j*ldm] = rand() % 32767;
 }
