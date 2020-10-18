@@ -58,6 +58,14 @@
     #define hSUBB_NR 8
     #define hSUBB_MR 8
     #define hMAX_THREAD 8
+        
+    //half precission BLIS block sizes for NVIDIA Carmel
+    #define i8BLOCK_NC 3072
+    #define i8BLOCK_KC 672
+    #define i8BLOCK_MC 576
+    #define i8BLOCK_NR 16
+    #define i8BLOCK_MR 16
+    #define i8MAX_THREAD 8
 #endif
 
        
