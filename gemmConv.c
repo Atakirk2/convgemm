@@ -565,16 +565,13 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
                             Br=&Bc_pack[jr*k_alg];
                             Cr=&Cc[ir+jr*ldc];
 
+    #ifdef fp16_support
                             if(mr_alg==hBLOCK_MR && nr_alg==hBLOCK_NR)
                             {
-    #ifdef fp16_support
                                 //printf("ir=%d, jr=%d, ic=%d, pc=%d, jc=%d\n",ir,jr,ic,pc,jc);
                                // printf("thread:%d, ir_start=%d, ir_end=%d\n",omp_get_thread_num(),ir_start, ir_end);
                                 //print_matrix( "Cc", 8, 24, Cc, ldc );
                                 hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-    #else
-                                hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-    #endif
                             }
                             /*else if(nr_alg==hSUBB_NR)
                             {
@@ -598,10 +595,14 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
                                 hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
                             }*/
                             else{//Micro-kernel cannot be applied
+
                                 hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&zero,CBuff,1,hBLOCK_MR);
                                 hxpbys_mxn(mr_alg,nr_alg,CBuff,hBLOCK_MR,&betaInner,Cr,ldc);
 							//sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
 						}
+    #else
+                                hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+    #endif
                         }
                        // #pragma omp barrier
                     }
@@ -901,7 +902,7 @@ void i16gemm_cust(unsigned int m, unsigned int n, unsigned int k,
  * @param[in] m Height of the block to pack.
  * @param[in] k Width of the block to pack.
  */
-void i8Pack_A(int8_t *A, unsigned int lda, int8_t *A_pack, unsigned int m, unsigned int k)
+/*void i8Pack_A(int8_t *A, unsigned int lda, int8_t *A_pack, unsigned int m, unsigned int k)
 {
 	int8_t *A_pack_local;
     unsigned int skipPos;
@@ -936,7 +937,7 @@ void i8Pack_A(int8_t *A, unsigned int lda, int8_t *A_pack, unsigned int m, unsig
  * @param[in] n Width of the block to pack.
  * @param[in] k Height of the block to pack.
  */
-void i8Pack_B(int8_t *B, unsigned int ldb, int8_t *B_pack, unsigned int k, unsigned int n)
+/*void i8Pack_B(int8_t *B, unsigned int ldb, int8_t *B_pack, unsigned int k, unsigned int n)
 
 {
 	int8_t *B_pack_local;
@@ -1000,7 +1001,7 @@ void i8set0s_mxn(unsigned int m,unsigned int n,int8_t* restrict M,unsigned int l
  * @param[in] Ac_pack_v Workspace for the packing of A (Only ofr allocation purposes).
  * @param[in] Bc_pack_v Workspace for the packing of B (Only ofr allocation purposes).
  */
-void i8gemm_cust(unsigned int m, unsigned int n, unsigned int k,
+/*void i8gemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		int8_t alpha,
 		int8_t * A, unsigned int lda,
 		int8_t * B, unsigned int ldb,
@@ -1072,7 +1073,7 @@ void i8gemm_cust(unsigned int m, unsigned int n, unsigned int k,
 		}
 	}
 }
-
+*/
 /** Packing of B + im2Col transform
  * 
  * Packs matrix B = im2Col(In) into the buffer B_pack in the proper data arrengment 
@@ -1457,16 +1458,13 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 						Br=&Bc_pack[jr*k_alg];
 						Cr=&Cc[ir+jr*ldc];
 
+    #ifdef fp16_support
                             if(mr_alg==hBLOCK_MR && nr_alg==hBLOCK_NR)
                             {
-    #ifdef fp16_support
                                 //printf("ir=%d, jr=%d, ic=%d, pc=%d, jc=%d\n",ir,jr,ic,pc,jc);
                                // printf("thread:%d, ir_start=%d, ir_end=%d\n",omp_get_thread_num(),ir_start, ir_end);
                                 //print_matrix( "Cc", 8, 24, Cc, ldc );
                                 hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-    #else
-                                hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
-    #endif
                             }
                             /*else if(nr_alg==hSUBB_NR)
                             {
@@ -1492,8 +1490,11 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
                             else{//Micro-kernel cannot be applied
                                 hgemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&zero,CBuff,1,hBLOCK_MR);
                                 hxpbys_mxn(mr_alg,nr_alg,CBuff,hBLOCK_MR,&betaInner,Cr,ldc);
-							//sgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+
 						}
+    #else
+                                hgemm_ref(k_alg,mr_alg,nr_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+    #endif
                     }
 				}
 
