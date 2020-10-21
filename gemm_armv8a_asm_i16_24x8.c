@@ -435,7 +435,7 @@ __asm__ volatile
 " dup  v4.8h, wzr                            \n\t"
 " dup  v5.8h, wzr                            \n\t"
 "                                            \n\t"
-" fcmp h7,#0.0                               \n\t"
+" cmp x7,#0                               \n\t"
 " beq .SBETAZEROCOLSTOREDS1                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
 " ld1 {v0.8h,v1.8h, v2.8h}, [x2]             \n\t" //Load column 0 of C
@@ -474,7 +474,7 @@ __asm__ volatile
 " dup  v5.8h, wzr                            \n\t"
 
 "                                            \n\t"
-" fcmp h7,#0.0                               \n\t"
+" cmp x7,#0                               \n\t"
 " beq .SBETAZEROCOLSTOREDS2                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
 " ld1 {v8.8h, v9.8h, v10.8h}, [x17]          \n\t" //Load column 2 of C
@@ -522,7 +522,7 @@ __asm__ volatile
 " dup  v18.8h, wzr                           \n\t"
 " dup  v19.8h, wzr                           \n\t"
 "                                            \n\t"
-" fcmp h7,#0.0                               \n\t"
+" cmp x7,#0                              \n\t"
 " beq .SBETAZEROCOLSTOREDS3                  \n\t" // Taking care of the beta==0 case.
 "                                            \n\t"
 " ld1 {v14.8h, v15.8h, v16.8h}, [x21]        \n\t" //Load column 6 of C
