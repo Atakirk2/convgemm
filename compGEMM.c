@@ -72,7 +72,7 @@ int main( int argc, char** argv )
     
     fpType *A, *B, *CBlis, *COwn,
             *Ac_pack, *Bc_pack;
-#ifdef fp_H
+#if defined(fp_H) || defined(i_16)
     float* Afloat, *Bfloat, *Cfloat; 
     float fONE = 1, fZERO = 0;
 #endif
@@ -113,7 +113,7 @@ int main( int argc, char** argv )
     COwn = (fpType*) aligned_alloc(16, m*n * sizeof(fpType));
         //print_matrix("CBuff",m,n,COwn,m);
         //print_matrix("CBuff1",m,n,COwn,m);
-#ifdef fp_H
+#if defined(fp_H) || defined(i_16)
     Afloat = (float*) malloc(m*k * sizeof(float));
     Bfloat = (float*) malloc(k*n * sizeof(float));
     Cfloat = (float*) aligned_alloc(16,m*n * sizeof(float));
@@ -148,13 +148,21 @@ int main( int argc, char** argv )
 #ifdef fp_D
         bli_dgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&ONE,A,1,m,B,1,k,&ZERO,CBlis,1,m);
 #elif fp_H
+    #ifdef COMPARE
         increasePrecissionV_HS(m*k,A,Afloat);
         increasePrecissionV_HS(k*n,B,Bfloat);
+    #endif
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&fONE,Afloat,1,m,Bfloat,1,k,&fZERO,Cfloat,1,m); 
+    #ifdef COMPARE
         decreasePrecissionV_SH(m*n,Cfloat,CBlis);
         //naiveGemm(m,n,k,1.0,A,m,B,k,0.0,CBlis,m,Ac_pack,Bc_pack);
+    #endif
 #elif i_16
+    #ifdef COMPARE
         gemm_naive(m,n,k,1,A,m,B,k,0,CBlis,m,Ac_pack,Bc_pack);
+    #else
+        bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&fONE,Afloat,1,m,Bfloat,1,k,&fZERO,Cfloat,1,m); 
+    #endif
 #else
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,m,n,k,&ONE,A,1,m,B,1,k,&ZERO,CBlis,1,m);
 #endif
@@ -245,6 +253,8 @@ int main( int argc, char** argv )
 #elif fp_H
         //printf("Precision: half\n");
         precision = "half";
+#elif i_16
+        precision = "int16";
 #else
         //printf("Precision: simple\n");
         precision = "single";
