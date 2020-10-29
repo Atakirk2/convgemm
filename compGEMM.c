@@ -13,7 +13,9 @@
 #include <stdlib.h>
 #include "gemmConv.h"
 #include "blis.h"
-
+#ifdef PWR
+#include "pmlib.h"
+#endif
 
 
 
@@ -56,6 +58,7 @@ int print_matrix( char *name, int m, int n, fpType *M, int ldm );
 int print_matrices( int m, int n, char *name, fpType *M, int ldm,  char *name2, fpType *M2, int ldm2);
 void gemm_naive(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack);
 void irandm(unsigned int m, unsigned int n, fpType *M,unsigned int ldm);
+int get_energy_stats(counter_t pm_counter, int set, double* avgPwr, double* maxPwr, double * energy);
 
 int main( int argc, char** argv )
 {
@@ -76,6 +79,18 @@ int main( int argc, char** argv )
     float* Afloat, *Bfloat, *Cfloat; 
     float fONE = 1, fZERO = 0;
 #endif
+
+#ifdef PWR
+    server_t pmlibServer;
+    counter_t pwrCounter;
+    line_t pwrLines;
+    int frequency = 0, aggregate = 1;
+    pm_set_server("127.0.0.1",6526, &pmlibServer);
+    pm_set_lines("0-11",&pwrLines);
+    pm_create_counter("Jetson-TX2",pwrLines,aggregate,frequency,pmlibServer,&pwrCounter);
+    double avgPwrBlis,avgPwrOwn, maxPwrBlis,maxPwrOwn, tPwrBlis, tPwrOwn, energyBlis, energyOwn;
+#endif
+    
 
     fpType norm = 0, normOrig = 0;
     
@@ -142,6 +157,9 @@ int main( int argc, char** argv )
 
 
     //Timing gemm blis
+#ifdef PWR 
+    pm_start_counter(&pwrCounter);
+#endif 
     tIni = bli_clock();
     for(i = 0; i <  repe; i++)
     {
@@ -168,9 +186,14 @@ int main( int argc, char** argv )
 #endif
     }
     tBlis = bli_clock() - tIni;
-    
+#ifdef PWR 
+    pm_stop_counter(&pwrCounter);
+#endif     
     
     //Timing custom gemm 
+#ifdef PWR 
+    pm_continue_counter(&pwrCounter);
+#endif 
     tIni = bli_clock();
     for(i = 0; i <  repe; i++)
     {
@@ -187,7 +210,9 @@ int main( int argc, char** argv )
 #endif
     }
     tOwn = bli_clock() -tIni;
-        
+#ifdef PWR 
+    pm_stop_counter(&pwrCounter);
+#endif         
                 
 #ifdef COMPARE
   #ifdef fp_D
@@ -244,6 +269,13 @@ int main( int argc, char** argv )
     gflopsBlis = ( 2.0 * m * k * n ) / ( tBlis * 1.0e9 );
     gflopsOwn = ( 2.0 * m * k * n ) / ( tOwn * 1.0e9 );
     
+#ifdef PWR 
+    pm_get_counter_data(&pwrCounter);
+    get_energy_stats(pwrCounter,0,&avgPwrBlis,&maxPwrBlis, &energyBlis);
+    get_energy_stats(pwrCounter,1, &avgPwrOwn, &maxPwrOwn, &energyOwn);
+    pm_finalize_counter(&pwrCounter);
+#endif 
+    
 #ifdef fp_D
         //printf("Precision: double\n");
         precision = "double";
@@ -262,8 +294,22 @@ int main( int argc, char** argv )
         
    // printf("BLIS Time: %.3f GFlops: %.3f\n",tBlis,gflopsBlis);
     //printf("Custom Time: %.3f GFlops: %.3f\n",tOwn,gflopsOwn);
-    
-    printf("Prec[%s],Size[%d,%d,%d],BLIS[T=%.4f,P=%.3f],Custom[T=%.4f,P=%.3f]\n",precision,m,n,k,tBlis,gflopsBlis,tOwn,gflopsOwn);
+
+#ifdef out_csv
+    #ifdef PWR
+        printf("%s;%d;%d;%d;%.4f;%.3f;%.3f;%.3f;%.3f;%.4f;%.3f;%.3f;%.3f;%.3f\n",precision,m,n,k,tBlis,gflopsBlis,avgPwrBlis,maxPwrBlis,energyBlis/repe,
+            tOwn,gflopsOwn, avgPwrOwn, maxPwrOwn,energyOwn/repe);    
+    #else
+        printf("%s;%d;%d;%d;%.4f;%.3f;%.4f;%.3f\n",precision,m,n,k,tBlis,gflopsBlis,tOwn,gflopsOwn);
+    #endif
+#else
+    #ifdef PWR
+        printf("Prec[%s],Size[%d,%d,%d],BLIS[T=%.4f,P=%.3f,avgPwr=%.3f,maxPwr=%.3f;E=%.3f],Custom[T=%.4f,P=%.3f,avgPwr=%.3f,maxPwr=%.3f,E=%.3f]\n",precision,m,n,k,tBlis,gflopsBlis,avgPwrBlis,maxPwrBlis,energyBlis,
+            tOwn,gflopsOwn, avgPwrOwn, maxPwrOwn,energyOwn);    
+    #else
+        printf("Prec[%s],Size[%d,%d,%d],BLIS[T=%.4f,P=%.3f],Custom[T=%.4f,P=%.3f]\n",precision,m,n,k,tBlis,gflopsBlis,tOwn,gflopsOwn);
+    #endif
+#endif
     
     free(A);
     free(B);
@@ -349,4 +395,46 @@ void irandm(unsigned int m, unsigned int n, fpType *M,unsigned int ldm)
     for ( j=0; j<n; j++ )
         for ( i=0; i<m; i++ )
             M[i+j*ldm] = rand() % 32767;
+}
+
+
+int get_energy_stats(counter_t pm_counter, int set, double* avgPwr, double* maxPwr, double * energy){
+
+
+	int	i;
+	int	ini, fin, watts_size;
+	double time, sum=0, currMax = 0;
+	
+
+	if ( pm_counter.aggregate )//this function only wotks with aggregate counters
+	{	
+
+		if (set > pm_counter.measures->energy.watts_sets_size-1 || set <0)
+			return -1;
+
+			ini=pm_counter.measures->energy.watts_sets[set];
+			fin=pm_counter.measures->energy.watts_sets[set+1];
+	
+			watts_size=pm_counter.measures->energy.watts_size;
+			time=pm_counter.measures->timing[(set*2)+1]-pm_counter.measures->timing[set*2];
+	
+			for(i=ini; i<fin; i++)
+			{
+				currMax = pm_counter.measures->energy.watts[i] > currMax? pm_counter.measures->energy.watts[i]:currMax;
+                sum+= pm_counter.measures->energy.watts[i];
+			}
+			sum/=(fin-ini);
+		
+        /*      printf("Time:       %f s\n", time);
+                printf("Avg. power: %f W\n", sum);
+                printf("Energy:     %f Ws\n", sum*time);
+	*/
+                *avgPwr = sum;
+                *maxPwr = currMax;
+                *energy = *avgPwr * time;
+	}
+	else
+    {
+        return -1;
+    }
 }
