@@ -1,7 +1,9 @@
 /**GEMM and GEMM_conv code
  * 
- * This file contains the implementation of all functions related with the GEMM computation.
- * The code present in this file was derived from a code originally developed for the 
+ * This file contains the implementation of all functions related with the GEMM computation 
+ * for multiple datatypes. Also contains the CONVGEMM algorithm first presented in
+ * https://doi.org/10.1109/SBAC-PAD49847.2020.00023, and its variations.
+ * The code present in this file has evolved from a code originally developed for the 
  * following paper: https://doi.org/10.1007/s10586-019-02927-z
  * 
  * @author P. San Juan
@@ -82,7 +84,7 @@ void dPack_B(double *B, unsigned int ldb, double *B_pack, unsigned int k, unsign
 
 /** Double precision matrix matrix multiplication.
  * 
- * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects atrices stored in column major order.
+ * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects matrices stored in column major order.
  * 
  * @param[in] m Number of rows of matrix C and A.
  * @param[in] n Number of columns of matrix C and B.
@@ -237,9 +239,9 @@ void sPack_B(float *B, unsigned int ldb, float *B_pack, unsigned int k, unsigned
 	}
 }
 
-/** Simple precision matrix matrix multiplication.
+/** Single precision matrix matrix multiplication.
  * 
- * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects atrices stored in column major order.
+ * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects matrices stored in column major order.
  * 
  * @param[in] m Number of rows of matrix C and A.
  * @param[in] n Number of columns of matrix C and B.
@@ -331,17 +333,7 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 }
 
 
-/** Packing of half precision matrix A.
- * 
- * Packs a block of matrix A into a buffer A_pack in the proper data arrengment 
- *  that the microkernel needs.
- * 
- * @param[in] A Pointer pointing to the position of A to start packing.
- * @param[in] lda Leading dimension of matrix a.
- * @param[in] A_pack Buffer containing the portion of A packed.
- * @param[in] m Height of the block to pack.
- * @param[in] k Width of the block to pack.
- */
+
 //Double microkernel version
 /*void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, unsigned int k)
 {
@@ -377,6 +369,17 @@ void sgemm_cust(unsigned int m, unsigned int n, unsigned int k,
         }
     }
 }*/ 
+/** Packing of half precision matrix A.
+ * 
+ * Packs a block of matrix A into a buffer A_pack in the proper data arrengment 
+ *  that the microkernel needs.
+ * 
+ * @param[in] A Pointer pointing to the position of A to start packing.
+ * @param[in] lda Leading dimension of matrix a.
+ * @param[in] A_pack Buffer containing the portion of A packed.
+ * @param[in] m Height of the block to pack.
+ * @param[in] k Width of the block to pack.
+ */
 void hPack_A(_Float16 *A, unsigned int lda, _Float16 *A_pack, unsigned int m, unsigned int k)
 {
 	_Float16 *A_pack_local;
@@ -435,6 +438,19 @@ void hPack_B(_Float16 *B, unsigned int ldb, _Float16 *B_pack, unsigned int k, un
 	}
 }
 
+/** Half precision xpby
+ * 
+ * Performs the operation  Y = X + beta * Y. All matrices are xpected to be stored
+ * in column major order.
+ * 
+ * @param[in] m Number of rows of matrices X and Y.
+ * @param[in] n Number of columns of matrices X and Y
+ * @param[in] X Matrix to add.
+ * @param[in] ldx Leading dimension of matrix X.
+ * @param[in] beta Sclar to multiply Y.
+ * @param[in,out] Y Input and output matrix.
+ * @param[in] ldy Leading dimension of matrix Y.
+ */
 void hxpbys_mxn(unsigned int m,unsigned int n, _Float16* restrict X, unsigned int ldx, _Float16* restrict beta, _Float16* restrict Y,unsigned int ldy)
 {
     unsigned int i,j;
@@ -444,6 +460,15 @@ void hxpbys_mxn(unsigned int m,unsigned int n, _Float16* restrict X, unsigned in
             *(Y + i + j * ldy) = *(X + i + j * ldx) + *beta * *(Y + i + j * ldy);
 }
 
+/** Set to 0s half precision matrix.
+ * 
+ * Sets all elements into a half precision column major matrix to 0s.
+ * 
+ * @param[in] m Number of rows of matrix M.
+ * @param[in] n Number of columns of matrix M.
+ * @param[in,out] M Matrix to set.
+ * @param[in] ldm Leading dimension of matrix M.
+ */
 void hset0s_mxn(unsigned int m,unsigned int n,_Float16* restrict M,unsigned int ldm)
 {
     unsigned int i,j;
@@ -456,7 +481,7 @@ void hset0s_mxn(unsigned int m,unsigned int n,_Float16* restrict M,unsigned int 
 
 /** Half precision matrix matrix multiplication.
  * 
- * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects atrices stored in column major order.
+ * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects matrices stored in column major order.
  * 
  * @param[in] m Number of rows of matrix C and A.
  * @param[in] n Number of columns of matrix C and B.
@@ -616,7 +641,7 @@ void hgemm_cust(unsigned int m, unsigned int n, unsigned int k,
 
 /** Half precision matrix matrix multiplication (with simple precision accumulation).
  * 
- * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects atrices stored in column major order.
+ * Performs a matrix matrix product in the form C = alpha * AB + beta * C. Expects matrices stored in column major order.
  * 
  * @param[in] m Number of rows of matrix C and A.
  * @param[in] n Number of columns of matrix C and B.
@@ -779,6 +804,19 @@ void i16Pack_B(int16_t *B, unsigned int ldb, int16_t *B_pack, unsigned int k, un
 }
 
 
+/** Int 16 xpby
+ * 
+ * Performs the operation  Y = X + beta * Y. All matrices are xpected to be stored
+ * in column major order.
+ * 
+ * @param[in] m Number of rows of matrices X and Y.
+ * @param[in] n Number of columns of matrices X and Y
+ * @param[in] X Matrix to add.
+ * @param[in] ldx Leading dimension of matrix X.
+ * @param[in] beta Sclar to multiply Y.
+ * @param[in,out] Y Input and output matrix.
+ * @param[in] ldy Leading dimension of matrix Y.
+ */
 void i16xpbys_mxn(unsigned int m,unsigned int n, int16_t* restrict X, unsigned int ldx, int16_t* restrict beta, int16_t* restrict Y,unsigned int ldy)
 {
     unsigned int i,j;
@@ -789,6 +827,15 @@ void i16xpbys_mxn(unsigned int m,unsigned int n, int16_t* restrict X, unsigned i
 }
 
 
+/** Set to 0s int16  matrix.
+ * 
+ * Sets all elements into an int16 column major matrix to 0s.
+ * 
+ * @param[in] m Number of rows of matrix M.
+ * @param[in] n Number of columns of matrix M.
+ * @param[in,out] M Matrix to set.
+ * @param[in] ldm Leading dimension of matrix M.
+ */
 void i16set0s_mxn(unsigned int m,unsigned int n,int16_t* restrict M,unsigned int ldm)
 {
     unsigned int i,j;
@@ -1504,6 +1551,10 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 }
 
 #ifdef _OPENMP
+/** Function created for multilevel paralelization, currently unfinished INGNORE
+ * 
+ * 
+ */
  void getThreadRange(unsigned rangeEnd, unsigned bSize,unsigned nThreads,unsigned *thrStart, unsigned *thrEnd)
 {
     unsigned blocks,

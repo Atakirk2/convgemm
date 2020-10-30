@@ -10,9 +10,16 @@
  *  -Model evaluation(default): Times the execution of the whole CNN model.
  *  -Layer evaluation(-DLAYER_EVAL): Times each layer and then agregates the results.
  * 
+ * This source also contains a precision evaluator which compares the  performance obtained
+ * by the convgemm algorithm using fp16 and fp32 precision (-Deval_precision).
+ * 
+ * The evaluator suports two output modes:
+ *     - Human readable(default): Custom format easy to read and interpret.
+ *     - CSV (-Dout_csv): CSV format delimited with semicolons(;).
+ * 
  * The models used by this evaluator had been pruned to only contain the convolutional 
  * layers of the corresponding CNN.
- * The evaluation was developed and tested for ARMCortex  A-57
+ * The evaluation was developed and tested for ARMCortex  A-57 and NVIDIA Carmel
  * 
  * @author P. San Juan
  * @date 04/2020
@@ -26,7 +33,7 @@
 #define CONV 0
 #define IM2COL_GEMM 1
 #define GEMM 2
-#define IMPLICIT_GEMM 3
+#define CONVGEMM 3
 
 //typedef dualBuffer;
 struct dualBufferS{
@@ -89,7 +96,7 @@ void maxMatrixSizes(int** model,const int nL, const int maxBatch, int* maxSizeF,
  * Executes and times a given model for a given batch size using the selected algorithm.
  * This function was developed to avoid unnecesary code replication.
  * 
- * @param[in] algorithm Algorithm to evaluate [CONV, IM2COL_GEMM, GEMM, or IMPLICIT_GEMM].
+ * @param[in] algorithm Algorithm to evaluate [CONV, IM2COL_GEMM, GEMM, or CONVGEMM].
  * @param[in] model CNN model parameters.
  * @param[in] nL Number of layers of the model.
  * @param[in] repe NUmber of repetitions for timing smoothing.
@@ -139,7 +146,7 @@ void inline timeNet(const int algorithm, int ** model, const int nL, const int r
                             sgemm_cust(kn,ho*wo*b,kh*kw*c,1,F,kn,Aux,kh*kw*c,0,inOut->partner->buff,kn,Ac_pack,Bc_pack);
                             inOut = inOut->partner;
                             break;
-                        case IMPLICIT_GEMM:
+                        case CONVGEMM:
                             sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, inOut->buff, 0,inOut->partner->buff,Ac_pack,Bc_pack);
                             inOut = inOut->partner;
                             break;
@@ -243,7 +250,7 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
         
         timeNet(IM2COL_GEMM, model, nL, repe, b, j, F, &inOut, Ac_pack, Bc_pack, Aux,  tIm2ColGemm);
         
-        timeNet(IMPLICIT_GEMM, model, nL, repe, b, j, F, &inOut, Ac_pack, Bc_pack, Aux,  tImp);
+        timeNet(CONVGEMM, model, nL, repe, b, j, F, &inOut, Ac_pack, Bc_pack, Aux,  tImp);
         
 
 #ifdef LAYER_EVAL   
@@ -282,9 +289,9 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
     return times;
 }
 
-/** Performs a convolution evaluation of a DNN model.
+/** Performs a convolution evaluation of a DNN model with FP32 and FP16 precisions.
  * 
- * Evaluates all the layers on the model for each convolution algorithm tested
+ * Evaluates all the layers on the model using the convgemm algorithm for single and half precision
  * and computes the timing measures.
  * 
  * @param[in] model CNN model parameters.
@@ -293,7 +300,7 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
  * @param[in] maxBatch Max batch size to evaluate.
  * @param[in] stepBatch Step for the batch size range.
  * @param[in] repe Number of repetitios for timing smoothing.
- * @return Matrix stack containing all the timing measurments( timing_measures * (nL * numbatch)).
+ * @return Matrix containing all the timing measurments( 2 * numbatch).
  */
 double ** evalNet_precision(int** model, const int nL, const int minBatch, const int maxBatch, const int stepBatch, const int repe)
 {

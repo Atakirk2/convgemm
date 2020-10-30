@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <blis.h>
 
-
+//Global variables used when we want to modify the block sizes at run time.
 #ifdef runtimeBLCKS
     #define dBLOCK_NR 8
     #define dBLOCK_MR 6
