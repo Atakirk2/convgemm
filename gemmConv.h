@@ -49,17 +49,17 @@
     #define BLOCK_MR 8
     #define MAX_THREAD 8
 
-    //half precission BLIS block sizes for NVIDIA Carmel
+    //half precission BLIS block sizes for NVIDIA Carmel //ARM A-57
     #define hBLOCK_NC 3072
-    #define hBLOCK_KC 672
-    #define hBLOCK_MC 576
+    #define hBLOCK_KC 672 //768
+    #define hBLOCK_MC 576 //96
     #define hBLOCK_NR 8
     #define hBLOCK_MR 24
     #define hSUBB_NR 8
     #define hSUBB_MR 8
     #define hMAX_THREAD 8
         
-    //half precission BLIS block sizes for NVIDIA Carmel
+    //int8 BLIS block sizes for NVIDIA Carmel 
     #define i8BLOCK_NC 3072
     #define i8BLOCK_KC 672
     #define i8BLOCK_MC 576
