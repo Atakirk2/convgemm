@@ -13,7 +13,7 @@ Each program has its own target and some compilation options taht should be pase
 `make OPTS="Options"`
 
 - `make comp`:  compiles the gemm comparator. This program compares the gemm implemented in BLIS with the custom GEMM (based in BLIS architecture) used in this project. Options:
-    -Datatype options, exclusive, default= single precision(FP32):
+    - Datatype options, exclusive, default= single precision(FP32):
         - `-Dfp_D`: Use double precision(FP64) as datatype.
         - `-Dfp_H`: Use half precision(FP16)  as datatype.
         - `-Dfp_HS`: Use half precision storage with single precision arithmetics.
