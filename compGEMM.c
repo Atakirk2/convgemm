@@ -58,7 +58,10 @@ int print_matrix( char *name, int m, int n, fpType *M, int ldm );
 int print_matrices( int m, int n, char *name, fpType *M, int ldm,  char *name2, fpType *M2, int ldm2);
 void gemm_naive(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack);
 void irandm(unsigned int m, unsigned int n, fpType *M,unsigned int ldm);
+
+#ifdef PWR
 int get_energy_stats(counter_t pm_counter, int set, double* avgPwr, double* maxPwr, double * energy);
+#endif
 
 int main( int argc, char** argv )
 {
@@ -397,7 +400,7 @@ void irandm(unsigned int m, unsigned int n, fpType *M,unsigned int ldm)
             M[i+j*ldm] = rand() % 32767;
 }
 
-
+#ifdef PWR
 int get_energy_stats(counter_t pm_counter, int set, double* avgPwr, double* maxPwr, double * energy){
 
 
@@ -438,3 +441,4 @@ int get_energy_stats(counter_t pm_counter, int set, double* avgPwr, double* maxP
         return -1;
     }
 }
+#endif
