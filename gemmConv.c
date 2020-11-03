@@ -1550,6 +1550,212 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 	}
 }
 
+
+
+/** 16-bit Integer Packing of B + im2Col transform
+ * 
+ * Packs matrix B = im2Col(In) into the buffer B_pack in the proper data arrengment 
+ *  that the microkernel needs. Matrix B does not exist in memory and the data packed 
+ *  into B_pack is read from the corresponding positions of the input tensor (In), 
+ *  resulting in an on-the-fly im2col transform. 
+ * 
+ * @param[in] i Row index in matrix B of the first position of the block to pack. 
+ * @param[in] j Column index in matrix B of the first position of the block to pack .
+ * @param[in] In Input tensor.
+ * @param[out] B_pack Buffer containing the portion of B packed.
+ * @param[in] k Height of the block to pack.
+ * @param[in] n Width of the block to pack.
+ * @param[in] b Batch size.
+ * @param[in] c number of chanels of input tensor.
+ * @param[in] h input tensor hight.
+ * @param[in] w input tensor width.
+ * @param[in] kh kernel height.
+ * @param[in] kw kernel width.
+ * @param[in] stride Stride to apply the krnels to the input tensor.
+ */
+void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_t * restrict B_pack, unsigned int k, unsigned int n,             
+                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
+                 unsigned int kh, unsigned int kw, unsigned int stride)
+
+{
+    unsigned int ic,ikw,ikh, //Row related indexes (regarding the phantom matrix)
+                 j_local, ib,iw,ih, //Col related indexes (regarding the phantom matrix)
+                 pos, pos_ic, pos_ib, pos_ic_ikw; //position on the original image
+    unsigned int pos_ic_ini,ikw_ini,ikh_ini,pos_ib_ini,iw_ini,ih_ini; //Initial values of indexes
+    
+    unsigned int cSize = h*w, //chanel memory leap
+                 kSize = kh*kw, //kernel memory leap (single chanel)
+                 bSize = c*h*w; //batch memory leap
+    
+    unsigned int jc,pc,jr; //loop control indexes
+	int16_t * restrict B_pack_local;
+    unsigned int skipPos;
+    
+    ic = i/kSize;
+    ikw_ini = (i%kSize)/kh;
+    ikh_ini = (i%kSize)%kh;
+    pos_ic_ini = ic * cSize;
+
+
+
+    #pragma omp parallel for private(B_pack_local, skipPos, j_local,pc,jr,ib,ih_ini, iw_ini, pos_ib_ini,pos_ic,ikw,pos_ic_ikw,ikh,pos_ib,iw,ih,pos) firstprivate(j)
+	for(jc=0;jc<n;jc+=hBLOCK_NR){
+
+		B_pack_local=&B_pack[jc*k];
+		unsigned int n_alg=fmin(hBLOCK_NR,n-jc);
+        skipPos =hBLOCK_NR - n_alg;
+        
+        j_local = j +jc;
+        ib = j_local/cSize;
+        iw_ini = (j_local%(cSize))/h;
+        ih_ini = (j_local%(cSize))%h;
+        pos_ib_ini = ib * bSize;
+
+        
+
+        //ih_ini = ih_ini + jc
+        
+        pos_ic=pos_ic_ini;
+        ikw=ikw_ini;
+        pos_ic_ikw = ikw * h + pos_ic;
+		for(pc=0,ikh=ikh_ini;pc<k;pc++,ikh++){
+            if(ikh==kh)
+            {
+                ikh=0;
+                ikw++;
+                pos_ic_ikw += h; //OPT pos_ic_ikw = ikw* h +pos_ic
+                if(ikw==kw)
+                {
+                    ikw=0;
+                    pos_ic += cSize;//OPT ic++;pos_ic = ic * cSize;
+                    pos_ic_ikw = pos_ic;//OPT pos_ic_ikw = ikw *h + pos_ic;
+                }
+            }
+            
+            pos_ib=pos_ib_ini;
+            iw=iw_ini;
+			for(jr=0,ih=ih_ini;jr<n_alg;jr++,ih++){
+                if(ih==h)
+                {
+                    ih=0;
+                    iw++;
+                    if(iw==w)
+                    {
+                        iw=0;
+                        pos_ib += bSize;//OPT ib++;pos_in = ib*bSize;
+                    }
+                }
+                //OPT pos = ib * bSize  + ic * cSize + (iw*stride + ikw) *h + (ih * stride+ikh);
+                //OPT pos = pos_ib + pos_ic + (iw*stride*h + pos_ikw) + (ih * stride+ikh);
+				pos = pos_ib + pos_ic_ikw + iw*stride*h + (ih * stride+ikh);
+                
+                B_pack_local[0]=In[pos];
+				B_pack_local++;
+			}
+			B_pack_local+=skipPos;
+		}
+        //ih_ini = ih;
+        //iw_ini = iw;
+        //pos_ib_ini = pos_ib;
+	}
+}
+
+
+/** 16-bit integer matrix matrix multiplication with implicit im2col.
+ * 
+ * Performs a matrix matrix product in the form C = alpha * AB + beta * C, where B = im2col(In). Expects matrices stored in column major order.
+ * 
+ * @param[in] kh Kernel height.
+ * @param[in] kw Kernel width.
+ * @param[in] c Number of chanels of input tensor.
+ * @param[in] kn Kernel number.
+ * @param[in] alpha Scalar alpha.
+ * @param[in] A Matrix A. lda assumed as kn.
+ * @param[in] h Input tensor hight.
+ * @param[in] w Input tensor width.
+ * @param[in] b Batch size.
+ * @param[in] stride Stride to apply the krnels to the input tensor.
+ * @param[in] In 1D-array containing a flattened version of the input tensor.
+ * @param[in] beta Scalar beta. 
+ * @param[in,out] C Matrix C. ldc asumed as kn.
+ * @param[in] Ac_pack Workspace for the packing of A (Only ofr allocation purposes).
+ * @param[in] Bc_pack Workspace for the packing of B (Only ofr allocation purposes).
+ */
+void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+		int16_t alpha, int16_t * A, 
+        unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
+		int16_t * In, int16_t beta,
+		int16_t * C,
+        int16_t * Ac_pack, int16_t * Bc_pack ){
+            
+	int16_t *Ac, *Bc;
+	int16_t *Cc;
+	int16_t *Ar, *Br;
+	int16_t *Cr;
+	int16_t betaInner, zero =  0.0;
+
+    unsigned int m = kn,
+                 n = h*w*b,
+                 k = kh*kw*c;
+          
+    unsigned int lda= kn,
+                 ldc= kn;
+    
+    int16_t CBuff[hBLOCK_MR*hBLOCK_NR];
+    i16set0s_mxn(hBLOCK_MR,hBLOCK_NR,CBuff,hBLOCK_MR);
+                 
+	for (unsigned int jc=0; jc<n; jc+=hBLOCK_NC) {
+
+		unsigned int n_alg=fmin(hBLOCK_NC,n-jc);
+		for (unsigned int pc=0; pc<k; pc+=hBLOCK_KC) {
+
+			unsigned int k_alg=fmin(hBLOCK_KC,k-pc);
+			if (pc >= hBLOCK_KC) //Check beta
+				betaInner=1.0;
+			else
+				betaInner=beta;
+
+			i16Pack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,kh,kw, stride);  //PACK B
+
+			for (unsigned int ic=0; ic<m; ic+=hBLOCK_MC) {
+
+				unsigned int m_alg=fmin(hBLOCK_MC,m-ic);
+				int16_t *Ac_pack_local=Ac_pack; 
+
+				Ac=&A[ic+pc*lda];
+				i16Pack_A(Ac,lda,(int16_t*)Ac_pack_local,m_alg,k_alg); //PACK A
+
+				Cc=&C[ic+jc*ldc];
+
+
+                #pragma omp parallel for  private(Ar, Br, Cr) 
+				for(unsigned jr=0;jr<n_alg;jr+=hBLOCK_NR){
+					unsigned int nr_alg=fmin(hBLOCK_NR,n_alg-jr);
+					for(unsigned int ir=0;ir<m_alg;ir+=hBLOCK_MR){
+						unsigned int mr_alg=fmin(hBLOCK_MR,m_alg-ir);
+						Ar=&Ac_pack_local[ir*k_alg];
+						Br=&Bc_pack[jr*k_alg];
+						Cr=&Cc[ir+jr*ldc];
+
+
+						if(mr_alg==hBLOCK_MR && nr_alg==hBLOCK_NR)
+						{
+                            i16gemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+
+						}
+						else{//Micro-kernel cannot be applied
+                             i16gemm_armv8a_asm_24x8(k_alg,&alpha,Ar,Br,&zero,CBuff,1,hBLOCK_MR);
+                            i16xpbys_mxn(mr_alg,nr_alg,CBuff,hBLOCK_MR,&betaInner,Cr,ldc);
+						}
+
+                    }
+				}
+
+			}
+		}
+	}
+}
+
 #ifdef _OPENMP
 /** Function created for multilevel paralelization, currently unfinished INGNORE
  * 

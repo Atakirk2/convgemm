@@ -205,3 +205,16 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float16 * restrict B_pack, unsigned int k, unsigned int n,             
                  unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
                  unsigned int kh, unsigned int kw, unsigned int stride);
+
+/***** Int 16 convolution****/
+void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+		int16_t alpha, int16_t * A, 
+        unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
+		int16_t * In, int16_t beta,
+		int16_t * C,
+        int16_t * Ac_pack, int16_t * Bc_pack );
+
+//Packing routine
+void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_t * restrict B_pack, unsigned int k, unsigned int n,             
+                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
+                 unsigned int kh, unsigned int kw, unsigned int stride);
