@@ -29,11 +29,28 @@
 #include <stdlib.h>
 #include "gemmConv.h"
 #include "convCommon.h"
+#ifdef PWR
+#include "pmlib.h"
+#endif
 
 #define CONV 0
 #define IM2COL_GEMM 1
 #define GEMM 2
 #define CONVGEMM 3
+
+#ifdef i_16
+    #define dType int16_t
+    #define EPS 5e-4
+    #define B_MC hBLOCK_MC
+    #define B_NC hBLOCK_NC
+    #define B_KC hBLOCK_KC
+#else
+    #define dType _Float16
+    #define EPS 5e-4
+    #define B_MC hBLOCK_MC
+    #define B_NC hBLOCK_NC
+    #define B_KC hBLOCK_KC
+#endif
 
 //typedef dualBuffer;
 struct dualBufferS{
@@ -41,10 +58,11 @@ struct dualBufferS{
     struct dualBufferS* partner; 
 };
 
-struct dualBufferH{
-    _Float16 * buff;
-    struct dualBufferH* partner; 
+struct dualBuffer{
+    dType * buff;
+    struct dualBuffer* partner; 
 };
+
 
 
 /** Computes the maximum matrix sizes for a model.
@@ -289,6 +307,15 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
     return times;
 }
 
+void irandm(unsigned int m, unsigned int n, dType *M,unsigned int ldm)
+{
+    int i,j;
+    
+    for ( j=0; j<n; j++ )
+        for ( i=0; i<m; i++ )
+            M[i+j*ldm] = rand() % 32767;
+}
+
 /** Performs a convolution evaluation of a DNN model with FP32 and FP16 precisions.
  * 
  * Evaluates all the layers on the model using the convgemm algorithm for single and half precision
@@ -302,18 +329,22 @@ double ** evalNet(int** model, const int nL, const int minBatch, const int maxBa
  * @param[in] repe Number of repetitios for timing smoothing.
  * @return Matrix containing all the timing measurments( 2 * numbatch).
  */
+#ifdef PWR
+double ** evalNet_precision(int** model, const int nL, const int minBatch, const int maxBatch, const int stepBatch, const int repe, counter_t* pwrCounter)
+#else
 double ** evalNet_precision(int** model, const int nL, const int minBatch, const int maxBatch, const int stepBatch, const int repe)
+#endif
 {
-    double **times, tIni, *tHalf, *tSingle; //Timing vectors
+    double **times, tIni, *tdType, *tSingle; //Timing vectors
     double sum;
     int i, j,r,l, b, //loop indexes
      	maxSizeF, maxSizeIn, maxSizeOut, maxSizeAux;//matrixz max sizes
     int numBatch, timers=2;
     int h, w, c, kh, kw, kn, stride, pad, ho, wo;//convolution parameters
-    float *F, *Ac_pack, *Bc_pack, *Aux;
-    _Float16 *hF, *hAc_pack, *hBc_pack, *hAux;
+    float *F, *Ac_pack, *Bc_pack;
+    dType *F2, *Ac_pack2, *Bc_pack2;
     struct dualBufferS inOut, *piO; //Double buffer, and pointer for navigation
-    struct dualBufferH hinOut, *hpiO; //Half precision Double buffer, and pointer for navigation
+    struct dualBuffer inOut2, *hpiO; //Multy type Double buffer, and pointer for navigation
     
 	
 	printf("Starting evaluation\n");
@@ -343,52 +374,59 @@ double ** evalNet_precision(int** model, const int nL, const int minBatch, const
     }
     
     //Input and output matrices (half precision)
-    hF = (_Float16*) malloc(maxSizeF * sizeof(_Float16));
-    hinOut.buff = (_Float16*) malloc(max(maxSizeOut,maxSizeIn) * sizeof(_Float16));
-    hinOut.partner = (struct dualBufferH *) malloc(sizeof(struct dualBufferH));
-    hinOut.partner->buff = (_Float16*) malloc(max(maxSizeOut,maxSizeIn) * sizeof(_Float16));
-    hinOut.partner->partner = &hinOut;
-    hpiO = &hinOut;
-    if(hF == NULL || hinOut.buff == NULL || hinOut.partner->buff == NULL)
+    F2 = (dType*) malloc(maxSizeF * sizeof(dType));
+    inOut2.buff = (dType*) malloc(max(maxSizeOut,maxSizeIn) * sizeof(dType));
+    inOut2.partner = (struct dualBuffer *) malloc(sizeof(struct dualBuffer));
+    inOut2.partner->buff = (dType*) malloc(max(maxSizeOut,maxSizeIn) * sizeof(dType));
+    inOut2.partner->partner = &inOut2;
+    hpiO = &inOut2;
+    if(F2 == NULL || inOut2.buff == NULL || inOut2.partner->buff == NULL)
     {
         perror("Error allocating matrices:");
         exit(2);
     }
     //auxiliar matrices
-    hAc_pack = (_Float16*) aligned_alloc(4096,hBLOCK_MC*hBLOCK_KC*sizeof(_Float16));
-    hBc_pack = (_Float16*) aligned_alloc(4096,hBLOCK_KC*hBLOCK_NC*sizeof(_Float16));
-    if(hAc_pack == NULL || hBc_pack == NULL)
+    Ac_pack2 = (dType*) aligned_alloc(4096,B_MC*B_KC*sizeof(dType));
+    Bc_pack2 = (dType*) aligned_alloc(4096,B_KC*B_NC*sizeof(dType));
+    if(Ac_pack2 == NULL || Bc_pack2 == NULL)
     {
         perror("Error allocating auxiliar matrices:");
         exit(2);
     }
 	
     bli_srandv(maxSizeF,F,1);
-    decreasePrecissionV_SH(maxSizeF,F,hF);
     bli_srandv(maxSizeIn,inOut.buff,1);
-    decreasePrecissionV_SH(maxSizeIn,inOut.buff,hinOut.buff);
+#ifdef i_16
+    irandm( maxSizeF, 1, F2, 1 );
+    irandm( maxSizeIn, 1, inOut2.buff, 1 );
+#else
+    decreasePrecissionV_SH(maxSizeF,F,F2);
+    decreasePrecissionV_SH(maxSizeIn,inOut.buff,inOut2.buff);
+#endif
 
     
     numBatch = (maxBatch -minBatch)/stepBatch+1;
     //Allocating timing structure
 	times = (double **) malloc (timers * sizeof(double*));
-    tHalf = (double *) calloc (numBatch,sizeof(double));
+    tdType = (double *) calloc (numBatch,sizeof(double));
 	tSingle = (double *) calloc (numBatch,sizeof(double));
-    if(tSingle == NULL || tHalf == NULL)
+    if(tSingle == NULL || tdType == NULL)
     {
         perror("Error allocating timing structures:");
         exit(2);
     }
 	times[0] = tSingle;
-    times[1] = tHalf;
+    times[1] = tdType;
 
 
-    
+    #ifdef PWR 
+    pm_start_counter(pwrCounter);
+    #endif 
     for(b=minBatch,j=0;b<=maxBatch; b+=stepBatch,j++)
     {
         printf("Evaluation with batch=%d\n",b);
 
-        //Evaluating simple precision convGemm
+        //Evaluating single precision convGemm
         tIni = bli_clock();
         for(r = 0; r < repe; r++)
             for(l=0; l < nL; l++)
@@ -405,8 +443,14 @@ double ** evalNet_precision(int** model, const int nL, const int minBatch, const
                 
             }              
         tSingle[j] = (bli_clock() -tIni )/repe;
-
-        //Evaluating half precision convGemm
+        #ifdef PWR 
+        pm_stop_counter(pwrCounter);
+        #endif   
+        
+        //Evaluating dType precision convGemm
+        #ifdef PWR 
+        pm_continue_counter(pwrCounter);
+        #endif 
         tIni = bli_clock();
         for(r = 0; r < repe; r++)
             for(l=0; l < nL; l++)
@@ -417,13 +461,24 @@ double ** evalNet_precision(int** model, const int nL, const int minBatch, const
                 ho = floor((h - kh + 2 * pad) / stride + 1);
                 wo = floor((w - kw + 2 * pad) / stride + 1);
 
-                hgemm_conv(kh,kw,c,kn,1,hF, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,hAc_pack,hBc_pack);
+#ifdef i_16
+                i16gemm_conv(kh,kw,c,kn,1,F2, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,Ac_pack2,Bc_pack2);
                 hpiO = hpiO->partner;
-
+#else
+                hgemm_conv(kh,kw,c,kn,1,F2, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,Ac_pack2,Bc_pack2);
+                hpiO = hpiO->partner;
+#endif
             }              
-        tHalf[j] = (bli_clock() -tIni )/repe;
+        tdType[j] = (bli_clock() -tIni )/repe;
+        #ifdef PWR 
+        pm_stop_counter(pwrCounter);
+        pm_continue_counter(pwrCounter);
+        #endif 
         
     }
+    #ifdef PWR 
+    pm_stop_counter(pwrCounter);
+    #endif   
     
     free(F);
     free(inOut.buff);
@@ -432,12 +487,12 @@ double ** evalNet_precision(int** model, const int nL, const int minBatch, const
     free(Ac_pack);
     free(Bc_pack);
     
-    free(hF);
-    free(hinOut.buff);
-    free(hinOut.partner->buff);
-    free(hinOut.partner);
-    free(hAc_pack);
-    free(hBc_pack);
+    free(F2);
+    free(inOut2.buff);
+    free(inOut2.partner->buff);
+    free(inOut2.partner);
+    free(Ac_pack2);
+    free(Bc_pack2);
 
     
     return times;
@@ -566,6 +621,50 @@ void genOutput(const int nL, int ** model, double** perfMeasures,const int minBa
 }
 
 
+#ifdef PWR
+int get_energy_stats(counter_t pm_counter, int set, double* avgPwr, double* maxPwr, double * energy){
+
+
+	int	i;
+	int	ini, fin, watts_size;
+	double time, sum=0, currMax = 0;
+	
+
+	if ( pm_counter.aggregate )//this function only wotks with aggregate counters
+	{	
+
+		if (set > pm_counter.measures->energy.watts_sets_size-1 || set <0)
+			return -1;
+
+			ini=pm_counter.measures->energy.watts_sets[set];
+			fin=pm_counter.measures->energy.watts_sets[set+1];
+	
+			watts_size=pm_counter.measures->energy.watts_size;
+			time=pm_counter.measures->timing[(set*2)+1]-pm_counter.measures->timing[set*2];
+	
+			for(i=ini; i<fin; i++)
+			{
+				currMax = pm_counter.measures->energy.watts[i] > currMax? pm_counter.measures->energy.watts[i]:currMax;
+                sum+= pm_counter.measures->energy.watts[i];
+			}
+			sum/=(fin-ini);
+		
+        /*      printf("Time:       %f s\n", time);
+                printf("Avg. power: %f W\n", sum);
+                printf("Energy:     %f Ws\n", sum*time);
+	*/
+                *avgPwr = sum;
+                *maxPwr = currMax;
+                *energy = *avgPwr * time;
+	}
+	else
+    {
+        return -1;
+    }
+}
+#endif
+
+
 /** Prints evaluation results  to standard output.
  * 
  * Formats and prints the timing measures obtained by the evaluation. 
@@ -581,17 +680,29 @@ void genOutput(const int nL, int ** model, double** perfMeasures,const int minBa
  * @param[in] stepBatch Step for batch size used in the evaluation.
  * @param[in] repe NUmber of repetitions used to smooth the results.
  */
+#ifdef PWR
+void genOutput_precision(const int nL, int ** model, double** perfMeasures,const int minBatch, const int maxBatch, const int stepBatch,const int repe,counter_t  pwrCounter)
+#else
 void genOutput_precision(const int nL, int ** model, double** perfMeasures,const int minBatch, const int maxBatch, const int stepBatch,const int repe)
+#endif
 {
     int l,j,b;
 	int id, h,w,c,kh,kw,kn,stride,pad,ho,wo;
 	double gflop, gflopTotal;
-	
+	double avgPwrSingle,avgPwrDtype, maxPwrSingle,maxPwrDtype, energySingle, energyDtype;
 	
     printf("Evaluation results (averaged results of %d repetitions):\n",repe);
     
 #ifdef out_csv
-    printf("batch;single_time;single_performance;half_time;half_performance\n");
+  #ifdef PWR
+    printf("batch;single_time;single_performance;single_inference_Perfonmance;single_inference_energy;dType_time;dType_performance;dType_inference_Performance;dType_inference_energy\n");
+  #else
+    printf("batch;single_time;single_performance;single_inference_Perfonmance;dType_time;dType_performance;dType_inference_Performance\n");
+  #endif
+#endif
+    
+    #ifdef PWR 
+    pm_get_counter_data(&pwrCounter);
 #endif
     
     for(b=minBatch,j=0;b<=maxBatch; b+=stepBatch,j++)
@@ -609,14 +720,29 @@ void genOutput_precision(const int nL, int ** model, double** perfMeasures,const
 				gflop = ( 2.0 * kn*ho*wo*b*kh*kw*c ) /  1.0e9 ;
 				gflopTotal+=gflop;
 		}
-
+        
+#ifdef PWR
+        get_energy_stats(pwrCounter,j*2,&avgPwrSingle,&maxPwrSingle, &energySingle);
+        get_energy_stats(pwrCounter,j*2+1, &avgPwrDtype, &maxPwrDtype, &energyDtype);
+        energySingle/=repe;energyDtype/=repe;
+#endif
+    
 #ifdef out_csv
-    printf("%d;%.4f;%.3f;%.3f;%.4f;%.3f;%.3f\n", b, perfMeasures[0][j],gflopTotal/perfMeasures[0][j],b/perfMeasures[0][j], perfMeasures[1][j],gflopTotal/perfMeasures[1][j],b/perfMeasures[1][j]);
+    #ifdef PWR 
+        printf("%d;%.4f;%.3f;%.3f;%4f;%.4f;%.3f;%.3f;%4f\n", b, perfMeasures[0][j],gflopTotal/perfMeasures[0][j],b/perfMeasures[0][j],b/energySingle, perfMeasures[1][j],gflopTotal/perfMeasures[1][j],b/perfMeasures[1][j],b/energyDtype);
+    #else
+        printf("%d;%.4f;%.3f;%.3f;%.4f;%.3f;%.3f\n", b, perfMeasures[0][j],gflopTotal/perfMeasures[0][j],b/perfMeasures[0][j], perfMeasures[1][j],gflopTotal/perfMeasures[1][j],b/perfMeasures[1][j]);
+    #endif
 #else
+    #ifdef PWR 
+        printf("batch[%d],single[T=%.4f,P=%.3f,S=%.3f,E=%4f],half[T=%.4f,P=%.3f, S=%.3f,E=%4f]\n", b, perfMeasures[0][j],gflopTotal/perfMeasures[0][j],b/perfMeasures[0][j],b/energySingle, perfMeasures[1][j],gflopTotal/perfMeasures[1][j],b/perfMeasures[1][j],b/energyDtype);
+    #else
 		printf("batch[%d],single[T=%.4f,P=%.3f,S=%.3f],half[T=%.4f,P=%.3f, S=%.3f]\n", b, perfMeasures[0][j],gflopTotal/perfMeasures[0][j],b/perfMeasures[0][j], perfMeasures[1][j],gflopTotal/perfMeasures[1][j],b/perfMeasures[1][j]);
+    #endif
 #endif
     }
 }
+
 
 int main( int argc, char** argv )
 {
@@ -629,6 +755,15 @@ int main( int argc, char** argv )
     int ** model;
     double** perfMeasures;
     
+    #ifdef PWR
+    server_t pmlibServer;
+    counter_t pwrCounter;
+    line_t pwrLines;
+    int frequency = 0, aggregate = 1;
+    pm_set_server("127.0.0.1",6526, &pmlibServer);
+    pm_set_lines("0-11",&pwrLines);
+    pm_create_counter("Jetson-TX2",pwrLines,aggregate,frequency,pmlibServer,&pwrCounter);
+    #endif
     
     if (argc != 6)
     {
@@ -651,15 +786,25 @@ int main( int argc, char** argv )
     nL = loadModel(modelName, &model);
    
 #ifdef eval_precision
+  #ifdef PWR 
+    perfMeasures = evalNet_precision(model, nL, minBatch, maxBatch, stepBatch, repe, &pwrCounter);
+    genOutput_precision(nL, model, perfMeasures, minBatch, maxBatch, stepBatch, repe, pwrCounter);
+  #else
     perfMeasures = evalNet_precision(model, nL, minBatch, maxBatch, stepBatch, repe);
-    
     genOutput_precision(nL, model, perfMeasures, minBatch, maxBatch, stepBatch, repe);
+  #endif
 #else
     perfMeasures = evalNet(model, nL, minBatch, maxBatch, stepBatch, repe);
     
     genOutput(nL, model, perfMeasures, minBatch, maxBatch, stepBatch, repe);
 #endif
     
+    #ifdef PWR 
+    pm_finalize_counter(&pwrCounter);
+    #endif 
+    
     free(perfMeasures);
     free(model);
 }
+
+
