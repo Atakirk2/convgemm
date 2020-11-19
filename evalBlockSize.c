@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "gemmConv.h"
-#include "blis.h"
+#include <blis.h>
 
 #ifdef fp_D
     #define fpType double

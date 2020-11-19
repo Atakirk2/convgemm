@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "blis.h"
+#include <blis.h>
 
 #define max(a,b) (((a)>(b ))?( a):(b))
 #define min(a,b) (((a)<(b ))?( a):(b))

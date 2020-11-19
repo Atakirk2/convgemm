@@ -33,7 +33,7 @@
 
 */
 
-#include "blis.h"
+#include <blis.h>
 
 /*
    o 4x4 Single precision micro-kernel fully functional.
