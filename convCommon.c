@@ -29,19 +29,21 @@
 void convolutionNaive(const int h, const int w, const int c,const int b,const float* In,const int kh,const int kw, const int kn, const float* F, float* Out, const int stride)
 {
 
-    int ic, ikh, ikw, ih, iw, ib, ik;    
+    int ic, ikh, ikw, ih, iw, ib, ik,ho,wo, pad =0; //padding currently unsuported    
     float ZERO = 0.0;
     
+    ho = floor((h - kh + 2 * pad) / stride + 1);
+    wo = floor((w - kw + 2 * pad) / stride + 1);
     
-    bli_ssetv(BLIS_NO_CONJUGATE,h*w*kn*b,&ZERO,Out,1);
+    bli_ssetv(BLIS_NO_CONJUGATE,ho*wo*kn*b,&ZERO,Out,1);
     for(ib = 0;ib < b; ib++)    
         for( ic = 0; ic < c; ic++)
-            for(iw = 0; iw < w; iw++)                
-                for(ih = 0; ih < h; ih++)
+            for(iw = 0; iw < wo; iw++)                
+                for(ih = 0; ih < ho; ih++)
                     for(ikw = 0; ikw < kw; ikw++)
                         for(ikh = 0; ikh < kh; ikh++)
                             for(ik=0;ik < kn; ik++)
-                                Out[ik + ( ib*w*h + iw*h + ih) *kn] += 
+                                Out[ik + ( ib*wo*ho + iw*ho + ih) *kn] += 
                                 In[ib * c*h*w + ic * h*w + (iw * stride + ikw) * h + (stride * ih + ikh)] 
                                 * F[ik + (ic * kh*kw + ikw * kh + ikh  ) * kn];
 
@@ -65,9 +67,10 @@ void convolutionNaive(const int h, const int w, const int c,const int b,const fl
 void im2Col(const int h, const int w, const int c, const int b,const float* In, const int kh, const int kw, const int stride,float* Out)
 {
     int ic, ikh, ikw, ih, iw, ib,
-        row,col;
+        row,col, ho,wo,pad =0; //padding currently unsuported
    
-    unsigned int cSize = h*w, //chanel memory leap
+    unsigned int cSize = h*w, //chanel memory leap in input tensor
+                 coSize = ho*wo, //chanel memory leap in output matix
                  kSize = kh*kw, //kernel memory leap (single chanel)
                  bSize = c*h*w, //batch memory leap
                  ckSize = c * kSize, //kernels memory leap (all channels)
@@ -81,22 +84,26 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
                  colib,
                  coliw;
     
+                 
+    ho = floor((h - kh + 2 * pad) / stride + 1);
+    wo = floor((w - kw + 2 * pad) / stride + 1);
+    
     for(ib = 0;ib < b; ib++)    
     {
-        colib = ib * cSize;
+        colib = ib * coSize;
         posib = ib * bSize;
         #pragma omp parallel for private (iw,ih,ikw,ikh,row,col,rowic,posic,coliw,posiw,posih,rowikw,posikw) 
         for( ic = 0; ic < c; ic++)
         {
             rowic = ic *kSize;
             posic = ic * cSize + posib;
-            for(iw = 0; iw < w; iw++)   
+            for(iw = 0; iw < wo; iw++)   
             {
-                coliw = colib + iw * h;
+                coliw = colib + iw * ho;
                 posiw = iw * stride * h + posic;
-                for(ih = 0; ih < h; ih++)
+                for(ih = 0; ih < ho; ih++)
                 {
-                     //OPT col = ib * cSize + iw * h + ih;
+                     //OPT col = ib * coSize + iw * h + ih;
                     col = coliw + ih;
                     posih = stride * ih;
                     for(ikw = 0; ikw < kw; ikw++)

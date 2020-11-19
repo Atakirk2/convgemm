@@ -188,9 +188,9 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
         float * Ac_pack, float * Bc_pack );
 
 //Packing routine
-void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * restrict B_pack, unsigned int k, unsigned int n,             
-                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
-                 unsigned int kh, unsigned int kw, unsigned int stride);
+void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * restrict B_pack, 
+                  unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
+                  unsigned int h, unsigned int w, unsigned int ho, unsigned int wo, unsigned int kh, unsigned int kw, unsigned int stride);
             
 
 /********half precision convolution gemm********/
@@ -202,9 +202,10 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
         _Float16 * Ac_pack, _Float16 * Bc_pack );
 
 //Packing routine
-void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float16 * restrict B_pack, unsigned int k, unsigned int n,             
-                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
-                 unsigned int kh, unsigned int kw, unsigned int stride);
+void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float16 * restrict B_pack,        
+                unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
+                unsigned int h, unsigned int w, unsigned int ho, unsigned int wo,
+                unsigned int kh, unsigned int kw, unsigned int stride);
 
 /***** Int 16 convolution****/
 void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
@@ -215,6 +216,7 @@ void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int
         int16_t * Ac_pack, int16_t * Bc_pack );
 
 //Packing routine
-void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_t * restrict B_pack, unsigned int k, unsigned int n,             
-                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
-                 unsigned int kh, unsigned int kw, unsigned int stride);
+void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_t * restrict B_pack, 
+                unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
+                unsigned int h, unsigned int w, unsigned int ho, unsigned int wo,  
+                unsigned int kh, unsigned int kw, unsigned int stride);

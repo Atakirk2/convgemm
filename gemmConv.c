@@ -1138,12 +1138,15 @@ void i8set0s_mxn(unsigned int m,unsigned int n,int8_t* restrict M,unsigned int l
  * @param[in] c number of chanels of input tensor.
  * @param[in] h input tensor hight.
  * @param[in] w input tensor width.
+ * @param[in] ho matrix B hight.
+ * @param[in] wo imatrix B width.
  * @param[in] kh kernel height.
  * @param[in] kw kernel width.
  * @param[in] stride Stride to apply the krnels to the input tensor.
  */
-void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * restrict B_pack, unsigned int k, unsigned int n,             
-                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
+void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * restrict B_pack, unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
+                 unsigned int h, unsigned int w, 
+                 unsigned int ho, unsigned int wo,
                  unsigned int kh, unsigned int kw, unsigned int stride)
 
 {
@@ -1152,13 +1155,15 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
                  pos, pos_ic, pos_ib, pos_ic_ikw; //position on the original image
     unsigned int pos_ic_ini,ikw_ini,ikh_ini,pos_ib_ini,iw_ini,ih_ini; //Initial values of indexes
     
-    unsigned int cSize = h*w, //chanel memory leap
+    unsigned int cSize = h*w, //chanel memory leap in input tensor
+                 coSize = ho*wo, //chanel memory leap in matrix B
                  kSize = kh*kw, //kernel memory leap (single chanel)
                  bSize = c*h*w; //batch memory leap
     
     unsigned int jc,pc,jr; //loop control indexes
 	float * restrict B_pack_local;
     unsigned int skipPos;
+    
     ic = i/kSize;
     ikw_ini = (i%kSize)/kh;
     ikh_ini = (i%kSize)%kh;
@@ -1174,9 +1179,9 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
         skipPos =BLOCK_NR - n_alg;
          
         j_local = j +jc;
-        ib = j_local/cSize;
-        iw_ini = (j_local%(cSize))/h;
-        ih_ini = (j_local%(cSize))%h;
+        ib = j_local/coSize;
+        iw_ini = (j_local%(coSize))/ho;
+        ih_ini = (j_local%(coSize))%ho;
         pos_ib_ini = ib * bSize;
 
         
@@ -1203,7 +1208,7 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
             pos_ib=pos_ib_ini;
             iw=iw_ini;
 			for(jr=0,ih=ih_ini;jr<n_alg;jr++,ih++){
-                if(ih==h)
+                if(ih==ho)
                 {
                     ih=0;
                     iw++;
@@ -1261,9 +1266,14 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 	float *Ar, *Br;
 	float *Cr;
 	float betaInner, zero =0.0;
+    
+    unsigned int ho, wo, pad = 0;//padding currently unsuported
+    
+    ho = floor((h - kh + 2 * pad) / stride + 1);
+    wo = floor((w - kw + 2 * pad) / stride + 1);
 
     unsigned int m = kn,
-                 n = h*w*b,
+                 n = ho*wo*b,
                  k = kh*kw*c;
           
     unsigned int lda= kn,
@@ -1284,7 +1294,7 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 			else
 				betaInner=beta;
 
-			sPack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,kh,kw, stride);  //PACK B
+			sPack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,ho,wo,kh,kw, stride);  //PACK B
 
 			for (unsigned int ic=0; ic<m; ic+=BLOCK_MC) {
 
@@ -1337,12 +1347,14 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
  * @param[in] c number of chanels of input tensor.
  * @param[in] h input tensor hight.
  * @param[in] w input tensor width.
+ * @param[in] ho matrix B hight.
+ * @param[in] wo matrix B width.
  * @param[in] kh kernel height.
  * @param[in] kw kernel width.
  * @param[in] stride Stride to apply the krnels to the input tensor.
  */
-void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float16 * restrict B_pack, unsigned int k, unsigned int n,             
-                 unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
+void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float16 * restrict B_pack, unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
+                 unsigned int h, unsigned int w,  unsigned int ho, unsigned int wo,
                  unsigned int kh, unsigned int kw, unsigned int stride)
 
 {
@@ -1351,7 +1363,8 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
                  pos, pos_ic, pos_ib, pos_ic_ikw; //position on the original image
     unsigned int pos_ic_ini,ikw_ini,ikh_ini,pos_ib_ini,iw_ini,ih_ini; //Initial values of indexes
     
-    unsigned int cSize = h*w, //chanel memory leap
+    unsigned int cSize = h*w, //chanel memory leap in input tensor
+                 coSize = ho*wo, //chanel memory leap in matrix B
                  kSize = kh*kw, //kernel memory leap (single chanel)
                  bSize = c*h*w; //batch memory leap
     
@@ -1374,9 +1387,9 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
         skipPos =hBLOCK_NR - n_alg;
         
         j_local = j +jc;
-        ib = j_local/cSize;
-        iw_ini = (j_local%(cSize))/h;
-        ih_ini = (j_local%(cSize))%h;
+        ib = j_local/coSize;
+        iw_ini = (j_local%(coSize))/ho;
+        ih_ini = (j_local%(coSize))%ho;
         pos_ib_ini = ib * bSize;
 
         
@@ -1403,7 +1416,7 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
             pos_ib=pos_ib_ini;
             iw=iw_ini;
 			for(jr=0,ih=ih_ini;jr<n_alg;jr++,ih++){
-                if(ih==h)
+                if(ih==ho)
                 {
                     ih=0;
                     iw++;
@@ -1462,8 +1475,13 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 	_Float16 *Cr;
 	_Float16 betaInner, zero =  0.0;
 
+    unsigned int ho, wo, pad = 0;//padding currently unsuported
+    
+    ho = floor((h - kh + 2 * pad) / stride + 1);
+    wo = floor((w - kw + 2 * pad) / stride + 1);
+    
     unsigned int m = kn,
-                 n = h*w*b,
+                 n = ho*wo*b,
                  k = kh*kw*c;
           
     unsigned int lda= kn,
@@ -1483,7 +1501,7 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 			else
 				betaInner=beta;
 
-			hPack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,kh,kw, stride);  //PACK B
+			hPack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,ho,wo,kh,kw, stride);  //PACK B
 
 			for (unsigned int ic=0; ic<m; ic+=hBLOCK_MC) {
 
@@ -1569,12 +1587,15 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
  * @param[in] c number of chanels of input tensor.
  * @param[in] h input tensor hight.
  * @param[in] w input tensor width.
+ * @param[in] ho matrix B hight.
+ * @param[in] wo imatrix B width.
  * @param[in] kh kernel height.
  * @param[in] kw kernel width.
  * @param[in] stride Stride to apply the krnels to the input tensor.
  */
 void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_t * restrict B_pack, unsigned int k, unsigned int n,             
                  unsigned int b, unsigned int c, unsigned int h, unsigned int w, 
+                 unsigned int ho, unsigned int wo,
                  unsigned int kh, unsigned int kw, unsigned int stride)
 
 {
@@ -1583,7 +1604,8 @@ void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_
                  pos, pos_ic, pos_ib, pos_ic_ikw; //position on the original image
     unsigned int pos_ic_ini,ikw_ini,ikh_ini,pos_ib_ini,iw_ini,ih_ini; //Initial values of indexes
     
-    unsigned int cSize = h*w, //chanel memory leap
+    unsigned int cSize = h*w, //chanel memory leap in input tensor
+                 coSize = ho*wo, //chanel memory leap in matrix B
                  kSize = kh*kw, //kernel memory leap (single chanel)
                  bSize = c*h*w; //batch memory leap
     
@@ -1606,9 +1628,9 @@ void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_
         skipPos =hBLOCK_NR - n_alg;
         
         j_local = j +jc;
-        ib = j_local/cSize;
-        iw_ini = (j_local%(cSize))/h;
-        ih_ini = (j_local%(cSize))%h;
+        ib = j_local/coSize;
+        iw_ini = (j_local%(coSize))/ho;
+        ih_ini = (j_local%(coSize))%ho;
         pos_ib_ini = ib * bSize;
 
         
@@ -1635,7 +1657,7 @@ void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_
             pos_ib=pos_ib_ini;
             iw=iw_ini;
 			for(jr=0,ih=ih_ini;jr<n_alg;jr++,ih++){
-                if(ih==h)
+                if(ih==ho)
                 {
                     ih=0;
                     iw++;
@@ -1693,9 +1715,14 @@ void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int
 	int16_t *Ar, *Br;
 	int16_t *Cr;
 	int16_t betaInner, zero =  0.0;
+    
+    unsigned int ho, wo, pad = 0;//padding currently unsuported
 
+    ho = floor((h - kh + 2 * pad) / stride + 1);
+    wo = floor((w - kw + 2 * pad) / stride + 1);
+    
     unsigned int m = kn,
-                 n = h*w*b,
+                 n = ho*wo*b,
                  k = kh*kw*c;
           
     unsigned int lda= kn,
@@ -1715,7 +1742,7 @@ void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int
 			else
 				betaInner=beta;
 
-			i16Pack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,kh,kw, stride);  //PACK B
+			i16Pack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,ho,wo,kh,kw, stride);  //PACK B
 
 			for (unsigned int ic=0; ic<m; ic+=hBLOCK_MC) {
 

@@ -111,12 +111,12 @@ int main( int argc, char** argv )
     {
         //Timing naive convolution
         tIni = bli_clock();
-        convolutionNaive(ho,wo,c,b,In,kh,kw,kn,F,OutConv, stride);
+        convolutionNaive(h,w,c,b,In,kh,kw,kn,F,OutConv, stride);
         tConv += bli_clock() - tIni;
 
         //Timing im2col +gemm
         tIni = bli_clock();
-        im2Col (ho,wo,c,b,In,kh,kw, stride,Aux);
+        im2Col (h,w,c,b,In,kh,kw, stride,Aux);
         tIm2Col += bli_clock() -tIni;
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,kn,ho*wo*b,kh*kw*c,&ONE,F,1,kn,Aux,1,kh*kw*c,&ZERO,OutI2c,1,kn);
         //sgemm_cust(kn,ho*wo*b,kh*kw*c,1,F,kn,Aux,kh*kw*c,0,OutI2c,kn,Ac_pack,Bc_pack);
@@ -126,7 +126,7 @@ int main( int argc, char** argv )
         
         //Timing implicint gemm
         tIni = bli_clock();
-        sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, In, 0,OutImp,Ac_pack,Bc_pack);
+        sgemm_conv(kh,kw,c,kn,1,F, h,w,b, stride, In, 0,OutImp,Ac_pack,Bc_pack);
         tImp += bli_clock() -tIni;
 
     }
