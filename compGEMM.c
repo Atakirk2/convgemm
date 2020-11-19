@@ -36,9 +36,9 @@
     #define fpType _Float16
     #define fp_H 1
     #define EPS 5e-4
-    #define B_MC hBLOCK_MC
-    #define B_NC hBLOCK_NC
-    #define B_KC hBLOCK_KC
+    #define B_MC BLOCK_MC
+    #define B_NC BLOCK_NC
+    #define B_KC BLOCK_KC
 #elif i_16
     #define fpType int16_t
     #define EPS 5e-4
@@ -74,7 +74,8 @@ int main( int argc, char** argv )
     
     int i,
         m, n, k, //matrix dimms
-        repe;
+        repe,
+        align = 32;
     
     fpType *A, *B, *CBlis, *COwn,
             *Ac_pack, *Bc_pack;
@@ -125,20 +126,20 @@ int main( int argc, char** argv )
         thrSt.IR = atoi(argv[8]);
     }
     
-    A = (fpType*) malloc(m*k * sizeof(fpType));
-    B = (fpType*) malloc(k*n * sizeof(fpType));
-    CBlis = (fpType*) aligned_alloc(16, m*n * sizeof(fpType));
-    COwn = (fpType*) aligned_alloc(16, m*n * sizeof(fpType));
+    A = (fpType*) aligned_alloc(align,m*k * sizeof(fpType));
+    B = (fpType*) aligned_alloc(align,k*n * sizeof(fpType));
+    CBlis = (fpType*) aligned_alloc(align, m*n * sizeof(fpType));
+    COwn = (fpType*) aligned_alloc(align, m*n * sizeof(fpType));
         //print_matrix("CBuff",m,n,COwn,m);
         //print_matrix("CBuff1",m,n,COwn,m);
 #if defined(fp_H) || defined(i_16)
-    Afloat = (float*) malloc(m*k * sizeof(float));
-    Bfloat = (float*) malloc(k*n * sizeof(float));
-    Cfloat = (float*) aligned_alloc(16,m*n * sizeof(float));
+    Afloat = (float*) aligned_alloc(align,m*k * sizeof(float));
+    Bfloat = (float*) aligned_alloc(align,k*n * sizeof(float));
+    Cfloat = (float*) aligned_alloc(align,m*n * sizeof(float));
 #endif
     
-    Ac_pack = (fpType*) aligned_alloc(16,B_MC*B_KC*sizeof(fpType));
-    Bc_pack = (fpType*) aligned_alloc(16,B_KC*B_NC*sizeof(fpType));
+    Ac_pack = (fpType*) aligned_alloc(align,B_MC*B_KC*sizeof(fpType));
+    Bc_pack = (fpType*) aligned_alloc(align,B_KC*B_NC*sizeof(fpType));
     
 
 #ifdef fp_D
@@ -377,7 +378,7 @@ int print_matrices( int m, int n, char *name, fpType *M, int ldm,  char *name2, 
 void gemm_naive(unsigned m, unsigned n, unsigned k, fpType alpha, fpType *A,unsigned lda,fpType *B, unsigned ldb, fpType beta, fpType *C, unsigned ldc ,fpType *Ac_pack, fpType *Bc_pack)
 {
     int i,j,z;
-    fpType *AB = (fpType*) malloc(m*n * sizeof(fpType));
+    fpType *AB = (fpType*) aligned_alloc(32,m*n * sizeof(fpType));
     
 
     for(j = 0; j < n; j++)
