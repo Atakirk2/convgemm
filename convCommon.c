@@ -69,6 +69,9 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
     int ic, ikh, ikw, ih, iw, ib,
         row,col, ho,wo,pad =0; //padding currently unsuported
    
+    ho = floor((h - kh + 2 * pad) / stride + 1);
+    wo = floor((w - kw + 2 * pad) / stride + 1);
+   
     unsigned int cSize = h*w, //chanel memory leap in input tensor
                  coSize = ho*wo, //chanel memory leap in output matix
                  kSize = kh*kw, //kernel memory leap (single chanel)
@@ -85,8 +88,7 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
                  coliw;
     
                  
-    ho = floor((h - kh + 2 * pad) / stride + 1);
-    wo = floor((w - kw + 2 * pad) / stride + 1);
+
     
     for(ib = 0;ib < b; ib++)    
     {
@@ -103,7 +105,7 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
                 posiw = iw * stride * h + posic;
                 for(ih = 0; ih < ho; ih++)
                 {
-                     //OPT col = ib * coSize + iw * h + ih;
+                     //OPT col = ib * coSize + iw * ho + ih;
                     col = coliw + ih;
                     posih = stride * ih;
                     for(ikw = 0; ikw < kw; ikw++)

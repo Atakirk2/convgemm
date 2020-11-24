@@ -1212,7 +1212,7 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
                 {
                     ih=0;
                     iw++;
-                    if(iw==w)
+                    if(iw==wo)
                     {
                         iw=0;
                         pos_ib += bSize;//OPT ib++;pos_in = ib*bSize;
@@ -1307,7 +1307,7 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 				Cc=&C[ic+jc*ldc];
 
 
-                #pragma omp parallel for  private(Ar, Br, Cr) 
+                #pragma omp parallel for  private(Ar, Br, Cr,CBuff) 
 				for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR){
 					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
 					for(unsigned int ir=0;ir<m_alg;ir+=BLOCK_MR){

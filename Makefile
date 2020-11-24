@@ -5,7 +5,7 @@ CFLAGS= -Wl,-rpath,$(LIBPATH) -L$(LIBPATH) -fpic -fopenmp $(COPTFLAGS) $(OPTS)
 ARCH=A57
 ifeq ($(ARCH),Carmel)
 	ARCHFLAGS= -mtune=cortex-a76  -march=armv8.2-a+fp16fml -Dfp16_support #NVIDIA Carmel
-else ifeq($(ARCH),A57)
+else ifeq ($(ARCH),A57)
 	ARCHFLAGS= -mtune=cortex-a57 -march=armv8-a+fp+simd -mcpu=cortex-a57 #Cortex A-57
 else ifeq ($(ARCH),A72) # Raspberry Pi 4
 	ARCHFLAGS= -mtune=cortex-a72 -march=armv8-a+fp+crc -mcpu=cortex-a72 
@@ -30,7 +30,7 @@ eval: convEval.x
 micro: testMicrokernels.x
 blocks: evalBlockSize.x
 peakPerf: peakPerfTest.x
-lib: $(LIBPATH)libgemmConv.so
+lib: $(LIBPATH)/libgemmConv.so
 
 %.o: %.c 
 	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCLUDE)
@@ -38,8 +38,8 @@ lib: $(LIBPATH)libgemmConv.so
 gemmConv.o: gemmConv.c $(uKOBJS) gemmConv.h
 	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCLUDE)
 
-$(LIBPATH)libgemmConv.so: gemmConv.o 
-	$(CC) -shared -o $@  $< $(uKOBJS)
+$(LIBPATH)/libgemmConv.so: gemmConv.o 
+	$(CC) -shared -fopenmp -o $@  $< $(uKOBJS)
 	
 convCommon.o: convCommon.c convCommon.h
 	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCLUDE)
@@ -51,7 +51,7 @@ testMicrokernels.x: testMicrokernels.o gemmConv.o
 	$(CC) -o $@ $^ $(uKOBJS) $(CFLAGS) $(LIB)	
 
 
-%.x: %.o $(LIBPATH)libgemmConv.so convCommon.o 
+%.x: %.o $(LIBPATH)/libgemmConv.so convCommon.o 
 	$(CC) -o $@ $^  $(CFLAGS) $(LIB)
 
 clean:
