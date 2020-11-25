@@ -1420,7 +1420,7 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
                 {
                     ih=0;
                     iw++;
-                    if(iw==w)
+                    if(iw==wo)
                     {
                         iw=0;
                         pos_ib += bSize;//OPT ib++;pos_in = ib*bSize;
@@ -1514,7 +1514,7 @@ void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 				Cc=&C[ic+jc*ldc];
 
 
-                #pragma omp parallel for  private(Ar, Br, Cr) 
+                #pragma omp parallel for  private(Ar, Br, Cr,CBuff) 
 				for(unsigned jr=0;jr<n_alg;jr+=hBLOCK_NR){
 					unsigned int nr_alg=fmin(hBLOCK_NR,n_alg-jr);
 					for(unsigned int ir=0;ir<m_alg;ir+=hBLOCK_MR){
@@ -1661,7 +1661,7 @@ void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_
                 {
                     ih=0;
                     iw++;
-                    if(iw==w)
+                    if(iw==wo)
                     {
                         iw=0;
                         pos_ib += bSize;//OPT ib++;pos_in = ib*bSize;
@@ -1755,7 +1755,7 @@ void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int
 				Cc=&C[ic+jc*ldc];
 
 
-                #pragma omp parallel for  private(Ar, Br, Cr) 
+                #pragma omp parallel for  private(Ar, Br, Cr,CBuff) 
 				for(unsigned jr=0;jr<n_alg;jr+=hBLOCK_NR){
 					unsigned int nr_alg=fmin(hBLOCK_NR,n_alg-jr);
 					for(unsigned int ir=0;ir<m_alg;ir+=hBLOCK_MR){

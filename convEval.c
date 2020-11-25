@@ -154,18 +154,18 @@ void inline timeNet(const int algorithm, int ** model, const int nL, const int r
                     switch(algorithm)
                     {
                         case CONV:
-                            convolutionNaive(ho,wo,c,b,inOut->buff,kh,kw,kn,F,inOut->partner->buff, stride);
+                            convolutionNaive(h,w,c,b,inOut->buff,kh,kw,kn,F,inOut->partner->buff, stride);
                             inOut = inOut->partner;
                             break;
                         case IM2COL_GEMM:
-                            im2Col(ho,wo,c,b,inOut->buff,kh,kw, stride,Aux);
+                            im2Col(h,w,c,b,inOut->buff,kh,kw, stride,Aux);
                         case GEMM:
                             //bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,kn,ho*wo*b,kh*kw*c,&ONE,F,1,kn,Aux,1,kh*kw*c,&ZERO,inOut->partner->buff,1,kn);
                             sgemm_cust(kn,ho*wo*b,kh*kw*c,1,F,kn,Aux,kh*kw*c,0,inOut->partner->buff,kn,Ac_pack,Bc_pack);
                             inOut = inOut->partner;
                             break;
                         case CONVGEMM:
-                            sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, inOut->buff, 0,inOut->partner->buff,Ac_pack,Bc_pack);
+                            sgemm_conv(kh,kw,c,kn,1,F, h,w,b, stride, inOut->buff, 0,inOut->partner->buff,Ac_pack,Bc_pack);
                             inOut = inOut->partner;
                             break;
                     }
