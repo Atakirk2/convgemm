@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "gemmConv.h"
+#include "convGemm.h"
 #include "convCommon.h"
 #ifdef PWR
 #include "pmlib.h"
@@ -165,7 +165,7 @@ void inline timeNet(const int algorithm, int ** model, const int nL, const int r
                             inOut = inOut->partner;
                             break;
                         case CONVGEMM:
-                            sgemm_conv(kh,kw,c,kn,1,F, h,w,b, stride, stride, inOut->buff, 0,inOut->partner->buff,Ac_pack,Bc_pack);
+                            sconvGemm(kh,kw,c,kn,1,F, h,w,b, stride, stride, inOut->buff, 0,inOut->partner->buff,Ac_pack,Bc_pack);
                             inOut = inOut->partner;
                             break;
                     }
@@ -437,7 +437,7 @@ double ** evalNet_precision(int** model, const int nL, const int minBatch, const
                 ho = floor((h - kh + 2 * pad) / stride + 1);
                 wo = floor((w - kw + 2 * pad) / stride + 1);
 
-                sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, stride, piO->buff, 0,piO->partner->buff,Ac_pack,Bc_pack);
+                sconvGemm(kh,kw,c,kn,1,F, ho,wo,b, stride, stride, piO->buff, 0,piO->partner->buff,Ac_pack,Bc_pack);
                 piO = piO->partner;
 
                 
@@ -465,7 +465,7 @@ double ** evalNet_precision(int** model, const int nL, const int minBatch, const
                 i16gemm_conv(kh,kw,c,kn,1,F2, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,Ac_pack2,Bc_pack2);
                 hpiO = hpiO->partner;
 #else
-                hgemm_conv(kh,kw,c,kn,1,F2, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,Ac_pack2,Bc_pack2);
+                hconvGemm(kh,kw,c,kn,1,F2, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,Ac_pack2,Bc_pack2);
                 hpiO = hpiO->partner;
 #endif
             }              

@@ -10,7 +10,7 @@
  * @date 04/2020
  */
 
-#include "gemmConv.h"
+#include "convGemm.h"
 
 
 
@@ -1258,7 +1258,7 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
  * @param[in] Ac_pack Workspace for the packing of A (Only ofr allocation purposes).
  * @param[in] Bc_pack Workspace for the packing of B (Only ofr allocation purposes).
  */
-void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+void sconvGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		float alpha, float * A, 
         unsigned int h, unsigned int w, unsigned int b, 
         unsigned int hStride, unsigned int wStride,
@@ -1469,7 +1469,7 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
  * @param[in] Ac_pack Workspace for the packing of A (Only ofr allocation purposes).
  * @param[in] Bc_pack Workspace for the packing of B (Only ofr allocation purposes).
  */
-void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+void hconvGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		_Float16 alpha, _Float16 * A, 
         unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
 		_Float16 * In, _Float16 beta,
@@ -1710,7 +1710,7 @@ void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_
  * @param[in] Ac_pack Workspace for the packing of A (Only ofr allocation purposes).
  * @param[in] Bc_pack Workspace for the packing of B (Only ofr allocation purposes).
  */
-void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+void i16convGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		int16_t alpha, int16_t * A, 
         unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
 		int16_t * In, int16_t beta,

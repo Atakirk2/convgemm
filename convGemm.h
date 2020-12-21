@@ -180,7 +180,7 @@ void i16xpbys_mxn(unsigned int m,unsigned int n, int16_t* restrict X, unsigned i
 void i16set0s_mxn(unsigned int m,unsigned int n,int16_t* restrict M,unsigned int ldm);
 
 /********simple precision convolution gemm********/
-void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+void sconvGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		float alpha, float * A, 
         unsigned int h, unsigned int w, unsigned int b, 
         unsigned int hStride, unsigned int wStride,
@@ -195,7 +195,7 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * res
             
 
 /********half precision convolution gemm********/
-void hgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+void hconvGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		_Float16 alpha, _Float16 * A, 
         unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
 		_Float16 * In, _Float16 beta,
@@ -209,7 +209,7 @@ void hPack_im2Col(unsigned int i, unsigned int j,_Float16 * restrict In, _Float1
                 unsigned int kh, unsigned int kw, unsigned int stride);
 
 /***** Int 16 convolution****/
-void i16gemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+void i16convGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		int16_t alpha, int16_t * A, 
         unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
 		int16_t * In, int16_t beta,

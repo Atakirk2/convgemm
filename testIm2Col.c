@@ -8,7 +8,7 @@
  */
 
 #include "convCommon.h"
-#include "gemmConv.h"
+#include "convGemm.h"
 
 
 /** Compares two matrices and returns the difference between them.
@@ -126,7 +126,7 @@ int main( int argc, char** argv )
         
         //Timing implicint gemm
         tIni = bli_clock();
-        sgemm_conv(kh,kw,c,kn,1,F, h,w,b, stride, stride, In, 0,OutImp,Ac_pack,Bc_pack);
+        sconvGemm(kh,kw,c,kn,1,F, h,w,b, stride, stride, In, 0,OutImp,Ac_pack,Bc_pack);
         tImp += bli_clock() -tIni;
 
     }

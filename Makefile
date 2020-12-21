@@ -35,10 +35,10 @@ lib: $(LIBPATH)/libgemmConv.so
 %.o: %.c 
 	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCLUDE)
 	
-gemmConv.o: gemmConv.c $(uKOBJS) gemmConv.h
+convGemm.o: convGemm.c $(uKOBJS) convGemm.h
 	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCLUDE)
 
-$(LIBPATH)/libgemmConv.so: gemmConv.o 
+$(LIBPATH)/libgemmConv.so: convGemm.o 
 	$(CC) -shared -fopenmp -o $@  $< $(uKOBJS)
 	
 convCommon.o: convCommon.c convCommon.h
@@ -47,7 +47,7 @@ convCommon.o: convCommon.c convCommon.h
 peakPerfTest.x: peakPerfTest.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LIB)
 
-testMicrokernels.x: testMicrokernels.o gemmConv.o
+testMicrokernels.x: testMicrokernels.o convGemm.o
 	$(CC) -o $@ $^ $(uKOBJS) $(CFLAGS) $(LIB)	
 
 
