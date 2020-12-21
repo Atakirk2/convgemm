@@ -126,7 +126,7 @@ int main( int argc, char** argv )
         
         //Timing implicint gemm
         tIni = bli_clock();
-        sgemm_conv(kh,kw,c,kn,1,F, h,w,b, stride, In, 0,OutImp,Ac_pack,Bc_pack);
+        sgemm_conv(kh,kw,c,kn,1,F, h,w,b, stride, stride, In, 0,OutImp,Ac_pack,Bc_pack);
         tImp += bli_clock() -tIni;
 
     }

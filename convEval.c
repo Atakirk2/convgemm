@@ -165,7 +165,7 @@ void inline timeNet(const int algorithm, int ** model, const int nL, const int r
                             inOut = inOut->partner;
                             break;
                         case CONVGEMM:
-                            sgemm_conv(kh,kw,c,kn,1,F, h,w,b, stride, inOut->buff, 0,inOut->partner->buff,Ac_pack,Bc_pack);
+                            sgemm_conv(kh,kw,c,kn,1,F, h,w,b, stride, stride, inOut->buff, 0,inOut->partner->buff,Ac_pack,Bc_pack);
                             inOut = inOut->partner;
                             break;
                     }
@@ -437,7 +437,7 @@ double ** evalNet_precision(int** model, const int nL, const int minBatch, const
                 ho = floor((h - kh + 2 * pad) / stride + 1);
                 wo = floor((w - kw + 2 * pad) / stride + 1);
 
-                sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, piO->buff, 0,piO->partner->buff,Ac_pack,Bc_pack);
+                sgemm_conv(kh,kw,c,kn,1,F, ho,wo,b, stride, stride, piO->buff, 0,piO->partner->buff,Ac_pack,Bc_pack);
                 piO = piO->partner;
 
                 

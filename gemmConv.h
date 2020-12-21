@@ -182,7 +182,8 @@ void i16set0s_mxn(unsigned int m,unsigned int n,int16_t* restrict M,unsigned int
 /********simple precision convolution gemm********/
 void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		float alpha, float * A, 
-        unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
+        unsigned int h, unsigned int w, unsigned int b, 
+        unsigned int hStride, unsigned int wStride,
 		float * B, float beta,
 		float * C,
         float * Ac_pack, float * Bc_pack );
@@ -190,7 +191,7 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 //Packing routine
 void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * restrict B_pack, 
                   unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
-                  unsigned int h, unsigned int w, unsigned int ho, unsigned int wo, unsigned int kh, unsigned int kw, unsigned int stride);
+                  unsigned int h, unsigned int w, unsigned int ho, unsigned int wo, unsigned int kh, unsigned int kw, unsigned int hStride, unsigned int wStride);
             
 
 /********half precision convolution gemm********/

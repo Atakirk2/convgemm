@@ -1142,13 +1142,15 @@ void i8set0s_mxn(unsigned int m,unsigned int n,int8_t* restrict M,unsigned int l
  * @param[in] wo imatrix B width.
  * @param[in] kh kernel height.
  * @param[in] kw kernel width.
- * @param[in] stride Stride to apply the krnels to the input tensor.
+ * @param[in] hStride Vertical stride to apply the kernels to the input tensor.
+ * @param[in] wHtride Horizontal stride to apply the kernels to the input tensor.
+
  */
 void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * restrict B_pack, unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
                  unsigned int h, unsigned int w, 
                  unsigned int ho, unsigned int wo,
-                 unsigned int kh, unsigned int kw, unsigned int stride)
-
+                 unsigned int kh, unsigned int kw, 
+                 unsigned int hStride, unsigned int wStride)
 {
     unsigned int ic,ikw,ikh, //Row related indexes (regarding the phantom matrix)
                  j_local, ib,iw,ih, //Col related indexes (regarding the phantom matrix)
@@ -1218,9 +1220,10 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
                         pos_ib += bSize;//OPT ib++;pos_in = ib*bSize;
                     }
                 }
-                //OPT pos = ib * bSize  + ic * cSize + (iw*stride + ikw) *h + (ih * stride+ikh);
-                //OPT pos = pos_ib + pos_ic + (iw*stride*h + pos_ikw) + (ih * stride+ikh);
-				pos = pos_ib + pos_ic_ikw + iw*stride*h + (ih * stride+ikh);
+                // OPT pos = ib * bSize  + ic * cSize + (iw * wStride + ikw) *h + (ih * hStride + ikh);
+                // OPT pos = pos_ib + pos_ic + (iw * wStride * h + pos_ikw) + (ih * hStride + ikh);
+                pos = pos_ib + pos_ic_ikw + iw * wStride * h + (ih * hStride + ikh);
+
                 
                 B_pack_local[0]=In[pos];
 				B_pack_local++;
@@ -1247,7 +1250,8 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
  * @param[in] h Input tensor hight.
  * @param[in] w Input tensor width.
  * @param[in] b Batch size.
- * @param[in] stride Stride to apply the krnels to the input tensor.
+ * @param[in] hStride Vertical stride to apply the kernels to the input tensor.
+ * @param[in] wHtride Horizontal stride to apply the kernels to the input tensor.
  * @param[in] In 1D-array containing a flattened version of the input tensor.
  * @param[in] beta Scalar beta. 
  * @param[in,out] C Matrix C. ldc asumed as kn.
@@ -1256,7 +1260,8 @@ void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * re
  */
 void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
 		float alpha, float * A, 
-        unsigned int h, unsigned int w, unsigned int b, unsigned int stride,
+        unsigned int h, unsigned int w, unsigned int b, 
+        unsigned int hStride, unsigned int wStride,
 		float * In, float beta,
 		float * C,
         float * Ac_pack, float * Bc_pack ){
@@ -1269,8 +1274,10 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
     
     unsigned int ho, wo, pad = 0;//padding currently unsuported
     
-    ho = floor((h - kh + 2 * pad) / stride + 1);
-    wo = floor((w - kw + 2 * pad) / stride + 1);
+
+    ho = (h - kh + 2 * pad) / hStride + 1; //integer division, note implicit floor
+    wo = (w - kw + 2 * pad) / wStride + 1; //integer division, note implicit floor
+
 
     unsigned int m = kn,
                  n = ho*wo*b,
@@ -1294,7 +1301,7 @@ void sgemm_conv(unsigned int kh, unsigned int kw, unsigned int c, unsigned int k
 			else
 				betaInner=beta;
 
-			sPack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,ho,wo,kh,kw, stride);  //PACK B
+			sPack_im2Col(pc,jc, In, Bc_pack, k_alg, n_alg, b,c,h,w,ho,wo,kh,kw, hStride, wStride);  //PACK B
 
 			for (unsigned int ic=0; ic<m; ic+=BLOCK_MC) {
 
