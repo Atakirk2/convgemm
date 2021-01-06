@@ -455,9 +455,14 @@ void hxpbys_mxn(unsigned int m,unsigned int n, _Float16* restrict X, unsigned in
 {
     unsigned int i,j;
     
-    for(j = 0; j < n; j++)
-        for(i = 0; i < m; i++)
-            *(Y + i + j * ldy) = *(X + i + j * ldx) + *beta * *(Y + i + j * ldy);
+    if(*beta == 0.0)
+        for(j = 0; j < n; j++)
+            for(i = 0; i < m; i++)
+                *(Y + i + j * ldy) = *(X + i + j * ldx);
+    else
+        for(j = 0; j < n; j++)
+            for(i = 0; i < m; i++)
+                *(Y + i + j * ldy) = *(X + i + j * ldx) + *beta * *(Y + i + j * ldy);
 }
 
 /** Set to 0s half precision matrix.
@@ -821,9 +826,14 @@ void i16xpbys_mxn(unsigned int m,unsigned int n, int16_t* restrict X, unsigned i
 {
     unsigned int i,j;
     
-    for(j = 0; j < n; j++)
-        for(i = 0; i < m; i++)
-            *(Y + i + j * ldy) = *(X + i + j * ldx) + *beta * *(Y + i + j * ldy);
+    if(*beta == 0.0)
+        for(j = 0; j < n; j++)
+            for(i = 0; i < m; i++)
+                *(Y + i + j * ldy) = *(X + i + j * ldx);
+    else
+        for(j = 0; j < n; j++)
+            for(i = 0; i < m; i++)
+                *(Y + i + j * ldy) = *(X + i + j * ldx) + *beta * *(Y + i + j * ldy);
 }
 
 

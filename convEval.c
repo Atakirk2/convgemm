@@ -2,7 +2,7 @@
  * 
  * This evaluator measures the performance obtained by the  3 algorithms compared 
  * to solve convolutions into CNN convolutional layers. The evaluator compares a naive 
- * convolution against the im2col + GEMM approach against our mplicit im2col gemm (gemm_conv) 
+ * convolution against the im2col + GEMM approach against our mplicit im2col gemm (convGemm) 
  * algorithm. 
  * The evaluator admits a compilation parameter to omit the execution of the naive
  * convolution (-DNONAIVE).
@@ -462,7 +462,7 @@ double ** evalNet_precision(int** model, const int nL, const int minBatch, const
                 wo = floor((w - kw + 2 * pad) / stride + 1);
 
 #ifdef i_16
-                i16gemm_conv(kh,kw,c,kn,1,F2, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,Ac_pack2,Bc_pack2);
+                i16convGemm(kh,kw,c,kn,1,F2, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,Ac_pack2,Bc_pack2);
                 hpiO = hpiO->partner;
 #else
                 hconvGemm(kh,kw,c,kn,1,F2, ho,wo,b, stride, hpiO->buff, 0,hpiO->partner->buff,Ac_pack2,Bc_pack2);
