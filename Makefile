@@ -25,6 +25,7 @@ endif
 
 all: testIm2Col.x compGEMM.x convEval.x
 test: testIm2Col.x
+testCol: testCol2Im.x
 comp: compGEMM.x
 eval: convEval.x
 micro: testMicrokernels.x

@@ -221,3 +221,18 @@ void i16Pack_im2Col(unsigned int i, unsigned int j,int16_t * restrict In, int16_
                 unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
                 unsigned int h, unsigned int w, unsigned int ho, unsigned int wo,  
                 unsigned int kh, unsigned int kw, unsigned int stride);
+
+
+/********simple precision backward computation gemm********/
+void sconvGemm_back(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+		float alpha, float * A, 
+        unsigned int h, unsigned int w, unsigned int b, 
+        unsigned int hStride, unsigned int wStride,
+		float * B, float * C,
+        float * Ac_pack, float * Bc_pack, float* Cc_pack);
+
+void sUnpack_col2im(float * restrict C_pack, unsigned int m, unsigned int n_pack, unsigned int j, float * restrict C,  unsigned int b, unsigned int c, 
+                 unsigned int h, unsigned int w, 
+                 unsigned int ho, unsigned int wo,
+                 unsigned int kh, unsigned int kw, 
+                 unsigned int hStride, unsigned int wStride);

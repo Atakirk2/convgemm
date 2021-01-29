@@ -52,7 +52,7 @@ void convolutionNaive(const int h, const int w, const int c,const int b,const fl
 
 /** Performs a im2col transformation to the input tensor.
  * 
- * Applys the im2Col tranform to the input tensor. The im2col transform uis used to perform a convolution using the GEMM kernel.
+ * Applys the im2Col tranform to the input tensor. The im2col transform is used to perform a convolution using the GEMM kernel.
  * 
  * @param[in] h input tensor hight
  * @param[in] w input tensor width
@@ -121,6 +121,86 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
                             //OPT Out[row + col * ckSize] = In[ib * bSize + ic * cSize + (iw * stride + ikw) * h + (stride * ih + ikh)];
                             //OPT Out[row + col * ckSize] = In[posib + posic + posikw + posih + ikh];
                             Out[row + col * ckSize] = In[posikw + posih + ikh];
+
+                        }
+                    }
+                }   
+            }
+        }
+    }
+}
+
+
+/** Performs a col2Im transformation to the input tensor.
+ * 
+ * Applys the col2Im tranform to an expanded matrix. The col2Im transform is used to 
+ * return to the image space after the GEMM kernel in the backward stage of CNNs.
+ * 
+ * @param[in] h Image tensor hight
+ * @param[in] w Image tensor width
+ * @param[in] c number of chanels of image tensor
+ * @param[in] b batch Size
+* @param[in] mat Matrix (column major stored) containing the expanded matrix
+ * @param[in] kh kernel height
+ * @param[in] kw kernel width
+ * @param[in] stride Stride to apply the krnels to the Image tensor
+ * @param[out] Im 1D-array containing a flattened version of the Image tensor
+ */
+void col2Im(const int h, const int w, const int c, const int b,const float* mat, const int kh, const int kw, const int stride,float* Im)
+{
+    int ic, ikh, ikw, ih, iw, ib,
+        row,col, ho,wo,pad =0; //padding currently unsuported
+   
+    ho = floor((h - kh + 2 * pad) / stride + 1);
+    wo = floor((w - kw + 2 * pad) / stride + 1);
+   
+    unsigned int cSize = h*w, //chanel memory leap in input tensor
+                 coSize = ho*wo, //chanel memory leap in output matix
+                 kSize = kh*kw, //kernel memory leap (single chanel)
+                 bSize = c*h*w, //batch memory leap
+                 ckSize = c * kSize, //kernels memory leap (all channels)
+                 posib,
+                 posic,
+                 posiw,
+                 posih,
+                 posikw,
+                 rowic,
+                 rowikw,
+                 colib,
+                 coliw;
+    
+                 
+
+    
+    for(ib = 0;ib < b; ib++)    
+    {
+        colib = ib * coSize;
+        posib = ib * bSize;
+        #pragma omp parallel for private (iw,ih,ikw,ikh,row,col,rowic,posic,coliw,posiw,posih,rowikw,posikw) 
+        for( ic = 0; ic < c; ic++)
+        {
+            rowic = ic *kSize;
+            posic = ic * cSize + posib;
+            for(iw = 0; iw < wo; iw++)   
+            {
+                coliw = colib + iw * ho;
+                posiw = iw * stride * h + posic;
+                for(ih = 0; ih < ho; ih++)
+                {
+                     //OPT col = ib * coSize + iw * ho + ih;
+                    col = coliw + ih;
+                    posih = stride * ih;
+                    for(ikw = 0; ikw < kw; ikw++)
+                    {
+                        rowikw = rowic + ikw * kh;
+                        posikw = posiw + ikw * h;
+                        for(ikh = 0; ikh < kh; ikh++)
+                        {
+                             //OPT row = ic *kSize + ikw * kh + ikh; 
+                            row = rowikw + ikh;
+                            //OPT Out[row + col * ckSize] = In[ib * bSize + ic * cSize + (iw * stride + ikw) * h + (stride * ih + ikh)];
+                            //OPT Out[row + col * ckSize] = In[posib + posic + posikw + posih + ikh];
+                            Im[posikw + posih + ikh] += mat[row + col * ckSize];
 
                         }
                     }

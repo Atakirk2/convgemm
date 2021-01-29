@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "gemmConv.h"
+#include "convGemm.h"
 #include <blis.h>
 #ifdef PWR
 #include "pmlib.h"

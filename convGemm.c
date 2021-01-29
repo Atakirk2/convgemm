@@ -1347,6 +1347,186 @@ void sconvGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn
 	}
 }
 
+
+void sPack_C(float *C_pack, unsigned int m, unsigned int n_pack, float *C, unsigned int ldc)
+{
+    #pragma omp parallel for 
+    for(unsigned int j=0;j < n_pack; j++){
+        for(unsigned int i=0;i < m;i++){
+                C[i + j * ldc] = C_pack[i + j * m];
+			}
+		}
+
+}
+
+
+/** Packing of C + col2Im transform
+ * 
+ * Unpacks buffer C_pack over the corresponding positions of C
+ *  resulting in an on-the-fly col2Im transform. 
+ * 
+ * @param[in] C_pack Buffer containing the portion of B packed.
+ * @param[in] j Column index in matrix C of the first position of the block to unpack .
+ * @param[in] m Height of the block to pack.
+ * @param[in] n_pack Width of the block to pack.
+ * @param[in,out] C Output tensor.
+ * @param[in] b Batch size.
+ * @param[in] c number of chanels of input tensor.
+ * @param[in] h input tensor hight.
+ * @param[in] w input tensor width.
+ * @param[in] ho matrix B hight.
+ * @param[in] wo imatrix B width.
+ * @param[in] kh kernel height.
+ * @param[in] kw kernel width.
+ * @param[in] hStride Vertical stride to apply the kernels to the input tensor.
+ * @param[in] wHtride Horizontal stride to apply the kernels to the input tensor.
+ * */
+void sUnpack_col2im(float * restrict C_pack, unsigned int m, unsigned int n_pack, unsigned int j, float * restrict C,  unsigned int b, unsigned int c, 
+                 unsigned int h, unsigned int w, 
+                 unsigned int ho, unsigned int wo,
+                 unsigned int kh, unsigned int kw, 
+                 unsigned int hStride, unsigned int wStride)
+{
+    float * restrict C_pack_local;
+    
+    unsigned int ic,ikw,ikh, //Row related indexes (regarding the phantom matrix)
+                 ib,iw,ih, //Col related indexes (regarding the phantom matrix)
+                 pos;
+    
+     unsigned int cSize = h*w, //chanel memory leap in input tensor
+                 coSize = ho*wo, //chanel memory leap in matrix B
+                 kSize = kh*kw, //kernel memory leap (single chanel)
+                 bSize = c*h*w; //batch memory leap
+    
+    
+    #pragma omp parallel for private(C_pack_local, ic, ikw, ikh, ib, iw, ih, pos) shared(C_pack, C, j, cSize, coSize, kSize, bSize, b, c, h, w, ho, wo, kh, kw, hStride, wStride, m, n_pack)default(none)
+    for(unsigned int jj=0;jj < n_pack; jj++){
+        C_pack_local = &C_pack[jj*m];
+        for(unsigned int i=0;i < m;i++){
+               // C[i + j * ldc] = C_pack[i + j * m];
+               
+                ic = i/kSize;
+                ikw = (i%kSize)/kh;
+                ikh = (i%kSize)%kh;
+            
+                ib = j/coSize;
+                iw = (j%(coSize))/ho;
+                ih = (j%(coSize))%ho;
+                
+                
+                
+                pos = ib * bSize  + ic * cSize + (iw * wStride + ikw) *h + (ih * hStride + ikh);
+                C[pos] += C_pack_local[0];
+                C_pack_local++;
+			}
+			j++;
+		}
+
+}
+
+
+/** Simple precision matrix matrix multiplication with implicit col2Im.
+ * 
+ * Performs a matrix matrix product in the form C = alpha * AB, where C = col2Im(AB). Expects matrices stored in column major order.
+ * 
+ * @param[in] kh Kernel height.
+ * @param[in] kw Kernel width.
+ * @param[in] c Number of chanels of input tensor.
+ * @param[in] kn Kernel number.
+ * @param[in] alpha Scalar alpha.
+ * @param[in] A Filters matrix. lda assumed as kh*kw*c.
+ * @param[in] h Input tensor hight.
+ * @param[in] w Input tensor width.
+ * @param[in] b Batch size.
+ * @param[in] hStride Vertical stride to apply the kernels to the input tensor.
+ * @param[in] wHtride Horizontal stride to apply the kernels to the input tensor.
+ * @param[in] B Output matrix from next layer. ldb assumed as kn.
+ * @param[in,out] C Output Matrix. ldc asumed as kh*kw*c.
+ * @param[in] Ac_pack Workspace for the packing of A (Only ofr allocation purposes).
+ * @param[in] Bc_pack Workspace for the packing of B (Only ofr allocation purposes).
+ */
+void sconvGemm_back(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
+		float alpha, float * A, 
+        unsigned int h, unsigned int w, unsigned int b, 
+        unsigned int hStride, unsigned int wStride,
+		float * B, float * C,
+        float * Ac_pack, float * Bc_pack, float* Cc_pack){
+            
+	float *Ac, *Bc;
+	float *Cc;
+	float *Ar, *Br;
+	float *Cr;
+	float betaInner, zero =0.0;
+    
+    unsigned int ho, wo, pad = 0;//padding currently unsuported
+    
+
+    ho = (h - kh + 2 * pad) / hStride + 1; //integer division, note implicit floor
+    wo = (w - kw + 2 * pad) / wStride + 1; //integer division, note implicit floor
+
+
+    unsigned int m = kh*kw*c,
+                 n = ho*wo*b,
+                 k = kn;
+          
+    unsigned int lda = m,
+                 ldb = k,
+                 ldc = m;
+                 
+    
+    float CBuff[BLOCK_MR*BLOCK_NR];
+    bli_sset0s_mxn(BLOCK_MR,BLOCK_NR,CBuff,1,BLOCK_MR);
+    
+	for (unsigned int jc=0; jc<n; jc+=BLOCK_NC) {
+        
+		unsigned int n_alg=fmin(BLOCK_NC,n-jc);
+		for (unsigned int pc=0; pc<k; pc+=BLOCK_KC) {
+
+			unsigned int k_alg=fmin(BLOCK_KC,k-pc);
+			if (pc >= BLOCK_KC) //Check beta
+				betaInner=1.0;
+			else
+				betaInner=0.0;
+
+			
+			Bc=&B[pc+jc*ldb];
+			sPack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
+
+			for (unsigned int ic=0; ic<m; ic+=BLOCK_MC) {
+
+				unsigned int m_alg=fmin(BLOCK_MC,m-ic);
+				float *Ac_pack_local=Ac_pack; 
+
+				Ac=&A[ic+pc*lda];
+				sPack_A(Ac,lda,(float*)Ac_pack_local,m_alg,k_alg); //PACK A
+
+                Cc=&Cc_pack[ic];
+
+                #pragma omp parallel for  private(Ar, Br, Cr,CBuff) 
+				for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR){
+					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
+					for(unsigned int ir=0;ir<m_alg;ir+=BLOCK_MR){
+						unsigned int mr_alg=fmin(BLOCK_MR,m_alg-ir);
+						Ar=&Ac_pack_local[ir*k_alg];
+						Br=&Bc_pack[jr*k_alg];
+						Cr=&Cc[ir+jr*ldc];
+
+						if(mr_alg==BLOCK_MR && nr_alg==BLOCK_NR)
+                            sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
+						else{//Micro-kernel cannot be applied
+                            sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&zero,CBuff,1,BLOCK_MR);
+                            bli_sssxpbys_mxn(mr_alg,nr_alg,CBuff,1,BLOCK_MR,&betaInner,Cr,1,ldc);
+                        }
+					}
+				}
+
+			}
+		}
+		
+		sUnpack_col2im(Cc_pack, m, n_alg, jc, C, b, c, h, w, ho, wo, kh, kw, hStride, wStride);
+	}
+}
+
 /** Half precision Packing of B + im2Col transform
  * 
  * Packs matrix B = im2Col(In) into the buffer B_pack in the proper data arrengment 
