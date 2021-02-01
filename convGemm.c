@@ -1389,38 +1389,59 @@ void sUnpack_col2im(float * restrict C_pack, unsigned int m, unsigned int n_pack
 {
     float * restrict C_pack_local;
     
-    unsigned int ic,ikw,ikh, //Row related indexes (regarding the phantom matrix)
-                 ib,iw,ih, //Col related indexes (regarding the phantom matrix)
-                 pos;
+    unsigned int jj,ii, j_local;
+    
+    unsigned int ic,ikw,ikh, //Row related indexes 
+                 ib,iw,ih, //Col related indexes (
+                 pos, pos_ic, pos_ib, pos_ic_ikw; //position on the result matrix
     
      unsigned int cSize = h*w, //chanel memory leap in input tensor
                  coSize = ho*wo, //chanel memory leap in matrix B
                  kSize = kh*kw, //kernel memory leap (single chanel)
                  bSize = c*h*w; //batch memory leap
     
+    //The following code ilustrates the original code prior to optimization
+    //OPT ic = i/kSize = 0;
+    //OPT ikw_ini = (i%kSize)/kh = 0;
+    //OPT ikh_ini = (i%kSize)%kh = 0;
+    //OPT pos_ic_ini =  ic * cSize = 0;
     
-    #pragma omp parallel for private(C_pack_local, ic, ikw, ikh, ib, iw, ih, pos) shared(C_pack, C, j, cSize, coSize, kSize, bSize, b, c, h, w, ho, wo, kh, kw, hStride, wStride, m, n_pack)default(none)
+    
+   #pragma omp parallel for private(C_pack_local, ic, ikw, ikh, ib, iw, ih, pos, jj, j_local,ii, pos_ic, pos_ic_ikw, pos_ib) shared(C_pack, C, j, cSize, coSize, kSize, bSize, b, c, h, w, ho, wo, kh, kw, hStride, wStride, m, n_pack)default(none)
     for(unsigned int jj=0;jj < n_pack; jj++){
         C_pack_local = &C_pack[jj*m];
-        for(unsigned int i=0;i < m;i++){
-               // C[i + j * ldc] = C_pack[i + j * m];
+        
+        j_local = j + jj;
+        ib = j_local/coSize;
+        iw = (j_local%(coSize))/ho;
+        ih = (j_local%(coSize))%ho;
+        pos_ib = ib * bSize;
+        
+        pos_ic = 0; //pos_ic=pos_ic_ini;
+        ikw = 0;//OPT ikw=ikw_ini;
+        pos_ic_ikw = 0; //OPT pos_ic_ikw = ikw * h + pos_ic;
+        for(unsigned int ii=0,ikh=0;ii < m;ii++,ikh++){
+            if(ikh==kh)
+            {
+                ikh=0;
+                ikw++;
+                pos_ic_ikw += h; //OPT pos_ic_ikw = ikw* h +pos_ic
+                if(ikw==kw)
+                {
+                    ikw=0;
+                    pos_ic += cSize;//OPT ic++;pos_ic = ic * cSize;
+                    pos_ic_ikw = pos_ic;//OPT pos_ic_ikw = ikw *h + pos_ic;
+                }
+            }
                
-                ic = i/kSize;
-                ikw = (i%kSize)/kh;
-                ikh = (i%kSize)%kh;
-            
-                ib = j/coSize;
-                iw = (j%(coSize))/ho;
-                ih = (j%(coSize))%ho;
-                
-                
-                
-                pos = ib * bSize  + ic * cSize + (iw * wStride + ikw) *h + (ih * hStride + ikh);
-                C[pos] += C_pack_local[0];
-                C_pack_local++;
-			}
-			j++;
-		}
+
+            //OPT pos = ib * bSize  + ic * cSize + (iw * wStride + ikw) *h + (ih * hStride + ikh);
+            // OPT pos = pos_ib + pos_ic + (iw * wStride * h + pos_ikw) + (ih * hStride + ikh);
+            pos = pos_ib + pos_ic_ikw + iw * wStride * h + (ih * hStride + ikh);
+            C[pos] += C_pack_local[0];
+            C_pack_local++;
+        }
+    }
 
 }
 
