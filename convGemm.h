@@ -68,6 +68,7 @@
     #define i8MAX_THREAD 8
 #endif
 
+        
        
 /**threading functions ****/
 struct threadStruct{
@@ -81,7 +82,9 @@ struct threadStruct{
 };
 void getThreadRange(unsigned rangeEnd, unsigned bSize,unsigned nThreads,unsigned *thrStart, unsigned *thrEnd);
 
-        
+// To allocate the packing buffers Ac_pack, Bc_pack and Cc_pack
+int alloc_pack_buffs(float** Ac_pack, float** Bc_pack);
+int alloc_unpack_buff(unsigned int kh, unsigned int kw, unsigned int c,float** Cc_pack);
         
 /********double precision gemm********/
 void dgemm_cust(unsigned int m, unsigned int n, unsigned int k,
@@ -180,19 +183,22 @@ void i16xpbys_mxn(unsigned int m,unsigned int n, int16_t* restrict X, unsigned i
 void i16set0s_mxn(unsigned int m,unsigned int n,int16_t* restrict M,unsigned int ldm);
 
 /********simple precision convolution gemm********/
-void sconvGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
-		float alpha, float * A, 
-        unsigned int h, unsigned int w, unsigned int b, 
-        unsigned int hStride, unsigned int wStride,
-		float * B, float beta,
-		float * C,
-        float * Ac_pack, float * Bc_pack );
+// Simple precision convolution gemm
+void sconvGemm(const char transIm2Col,
+               unsigned int kh, unsigned int kw, unsigned int c,
+               unsigned int kn,
+               float alpha, const float *A,
+               unsigned int h, unsigned int w, unsigned int b,
+               unsigned int hStride, unsigned int wStride,
+               const float *In, float beta,
+               float *restrict C,
+               float *restrict Ac_pack, float *restrict Bc_pack);
 
 //Packing routine
 void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * restrict B_pack, 
                   unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
                   unsigned int h, unsigned int w, unsigned int ho, unsigned int wo, unsigned int kh, unsigned int kw, unsigned int hStride, unsigned int wStride);
-            
+
 
 /********half precision convolution gemm********/
 void hconvGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,
@@ -228,11 +234,13 @@ void sconvGemm_back(unsigned int kh, unsigned int kw, unsigned int c, unsigned i
 		float alpha, float * A, 
         unsigned int h, unsigned int w, unsigned int b, 
         unsigned int hStride, unsigned int wStride,
+        unsigned int hPad, unsigned int wPad,
 		float * B, float * C,
         float * Ac_pack, float * Bc_pack, float* Cc_pack);
 
+//Unpacking routine for backward computation
 void sUnpack_col2im(float * restrict C_pack, unsigned int m, unsigned int n_pack, unsigned int j, float * restrict C,  unsigned int b, unsigned int c, 
                  unsigned int h, unsigned int w, 
                  unsigned int ho, unsigned int wo,
                  unsigned int kh, unsigned int kw, 
-                 unsigned int hStride, unsigned int wStride);
+                 unsigned int hStride, unsigned int wStride, unsigned int hPad, unsigned int wPad);

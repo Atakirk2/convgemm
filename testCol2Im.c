@@ -4,11 +4,26 @@
  * The test is performed for ARMCortex  A-57
  * 
  * @author P. San Juan
- * @date 04/2020
+ * @date 01/2021
  */
 
 #include "convCommon.h"
 #include "convGemm.h"
+
+void sset0sM(unsigned int m, unsigned int n, float *restrict M,
+             unsigned int ldm);
+
+int print_matrices( int m, int n, char *name, float *M, int ldm,  char *name2, float *M2, int ldm2)
+{
+
+  int i, j;
+
+  for ( j=0; j<n; j++ )
+    for ( i=0; i<m; i++ )
+      printf( "   (%d,%d) = %s[%22.15e]    [%22.15e]%s;\n",  i, j,name, (double)M[i +j * ldm], (double)M2[i +j * ldm2],name2);
+
+  return 0;
+}
 
 
 /** Compares two matrices and returns the difference between them.
@@ -35,6 +50,37 @@ float compareMatrix(const int m,const int n, float* M, const int ldm, float* M2,
     return norm/normM2;
 }
 
+void extractMatrix(unsigned int m, unsigned int n, unsigned int pad, float * Mpad, float* M )
+{
+    int i, j, ip, jp;
+    
+    for(j = 0, jp = pad; j < m; j++, jp++)
+        for(i = 0,ip = pad; i < n; i++,ip++)
+            M[i + j * n] = Mpad[ip + jp * (n +2 * pad)];
+    
+    
+}
+
+void extractImages(unsigned int h, unsigned int w, unsigned int c, unsigned int b, unsigned int pad, float * Mpad, float* M )
+{
+    int ih, iw, ic, ib, ihp, iwp;
+    
+    unsigned int cSize = h * w;
+    unsigned int bSize = cSize * c;
+    
+    unsigned int cSizePad = (h + 2 * pad) * (w + 2 * pad);
+    unsigned int bSizePad = cSizePad * c;
+    
+    for(ib = 0; ib < b; ib++)
+        for(ic = 0; ic < c; ic++)
+            for(iw = 0, iwp = pad; iw < w; iw++, iwp++)
+                for(ih = 0,ihp = pad; ih < h; ih++,ihp++)
+                    M[ih + iw * h + ic * (cSize) + ib * bSize] = 
+                        Mpad[ihp + iwp * (h +2 * pad) + ic * cSizePad + ib * bSizePad];
+}
+
+
+
 int main( int argc, char** argv )
 {
     double tCol2Im = 0.0, tCol2ImGemm = 0, tImp = 0.0, tIni,
@@ -52,8 +98,8 @@ int main( int argc, char** argv )
          stride,pad; //algorithm parameters
         
     
-    float *F, *dX, *dXImp, 
-         *dY, *OutImp,
+    float *F, *dX, *dXImp, * dXextract, 
+         *dY,
          *Aux,
          *Ac_pack, *Bc_pack, *Cc_pack;
 
@@ -101,10 +147,13 @@ int main( int argc, char** argv )
     Aux = (float*) malloc(c*kh*kw * ho*wo*b * sizeof(float));
     
     //output matrices 
-    dX = (float*) malloc(h*w*c *b * sizeof(float));
-    dXImp = (float*) malloc(h*w*c *b * sizeof(float));
-    OutImp = (float*) malloc(ho*wo*kn*b * sizeof(float));
-    
+    dX = (float*) malloc((h+2 * pad)*(w + 2 * pad)*c *b * sizeof(float));
+#ifdef cIsPadded
+    dXImp = (float*) malloc((h + 2 * pad)*(w+ 2 * pad)*c *b * sizeof(float));
+#else
+    dXImp = (float*) malloc(h *w*c *b * sizeof(float));
+    dXextract = (float*) malloc(h *w*c *b * sizeof(float));
+#endif
     
     printf("Generating random matrices...\n");
     bli_srandm( 0, BLIS_DENSE, kn, ho*wo*b, dY, 1, kn );
@@ -117,15 +166,18 @@ int main( int argc, char** argv )
       tIni = bli_clock();
         bli_sgemm(BLIS_NO_TRANSPOSE,BLIS_NO_TRANSPOSE,kh*kw*c,ho*wo*b,kn,&ONE,F,1,kh*kw*c,dY,1,kn,&ZERO,Aux,1,kh*kw*c);
       tCol2ImGemm += bli_clock() -tIni;
-        col2Im(h,w,c,b,Aux,kh,kw, stride,dX);
+        sset0sM((h + 2 * pad) * (w + 2 * pad) * c * b,1, dX, 0);
+        col2Im(h,w,c,b,Aux,kh,kw, stride, pad,dX);
+        
       tCol2Im += bli_clock() -tIni;
         
         //Timing implicint gemm
         tIni = bli_clock();
-        sconvGemm_back(kh,kw,c,kn,1,F, h,w,b, stride, stride, dY,dXImp,Ac_pack,Bc_pack,Cc_pack);
+        sconvGemm_back(kh,kw,c,kn,1,F, h,w,b, stride, stride, pad,pad,dY,dXImp,Ac_pack,Bc_pack,Cc_pack);
         tImp += bli_clock() -tIni;
 
     }
+    
     
     tCol2Im/=repe;
     tCol2ImGemm/=repe;
@@ -139,16 +191,24 @@ int main( int argc, char** argv )
     printf("Implicit Gemm Time: %.4g GFLOPS: %.5g\n",tImp,perfImp);
     printf("Peak performance: %g, im2col gemm: %g, implicit gemm: %g\n",perfPeak,perfGemm/perfPeak,perfImp/perfPeak);
     
+#ifdef cIsPadded
+    print_matrices( (h + 2 * pad)*(w+ 2 * pad)*c *b , 1, "dX", dX, 0,  "dXImp", dXImp, 0);
+    printf("norm(dX-dXImp)=%g\n",compareMatrix((h + 2 * pad) * (w + 2 * pad) * c * b,1,dX,0,dXImp,0));
+#else    
+    extractImages(h,w,c,b, pad, dX, dXextract);
+    print_matrices( h *w*c *b , 1, "dX", dXextract, 0,  "dXImp", dXImp, 0);
+    printf("norm(dX-dXImp)=%g\n",compareMatrix(h * w * c * b,1,dXextract,0,dXImp,0));
+#endif
     
-    printf("norm(dX-dXImp)=%g\n",compareMatrix(h*w*c*b,1,dX,h*w*c*b,dXImp,h*w*c*b));
+
     
     
     free(dX);
     free(F);
     free(dY);
     free(dXImp);
-    free(OutImp);
     free(Aux);
     free(Ac_pack);
     free(Bc_pack);
+    free(Cc_pack);
 }

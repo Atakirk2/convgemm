@@ -131,7 +131,8 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
 }
 
 
-/** Performs a col2Im transformation to the input tensor.
+/**
+ *  Performs a col2Im transformation to the input tensor.
  * 
  * Applys the col2Im tranform to an expanded matrix. The col2Im transform is used to 
  * return to the image space after the GEMM kernel in the backward stage of CNNs.
@@ -146,28 +147,24 @@ void im2Col(const int h, const int w, const int c, const int b,const float* In, 
  * @param[in] stride Stride to apply the krnels to the Image tensor
  * @param[out] Im 1D-array containing a flattened version of the Image tensor
  */
-void col2Im(const int h, const int w, const int c, const int b,const float* mat, const int kh, const int kw, const int stride,float* Im)
+void col2Im(const int h, const int w, const int c, const int b,const float* mat, const int kh, const int kw, const int stride, const int pad, float* Im)
 {
     int ic, ikh, ikw, ih, iw, ib,
-        row,col, ho,wo,pad =0; //padding currently unsuported
+        row,col, ho,wo, ldh;
    
     ho = floor((h - kh + 2 * pad) / stride + 1);
     wo = floor((w - kw + 2 * pad) / stride + 1);
-   
-    unsigned int cSize = h*w, //chanel memory leap in input tensor
-                 coSize = ho*wo, //chanel memory leap in output matix
-                 kSize = kh*kw, //kernel memory leap (single chanel)
-                 bSize = c*h*w, //batch memory leap
+    ldh = h + 2* pad; 
+    
+    unsigned int cSize = ldh * (w + 2 * pad), //chanel memory leap in output tensor
+                 coSize = ho * wo, //chanel memory leap in input matix
+                 kSize = kh * kw, //kernel memory leap (single chanel)
+                 bSize = c * cSize, //batch memory leap
                  ckSize = c * kSize, //kernels memory leap (all channels)
-                 posib,
-                 posic,
-                 posiw,
-                 posih,
-                 posikw,
-                 rowic,
-                 rowikw,
-                 colib,
-                 coliw;
+                 posib, posic,
+                 posiw, posih, posikw,
+                 rowic, rowikw,
+                 colib, coliw;
     
                  
 
@@ -184,7 +181,7 @@ void col2Im(const int h, const int w, const int c, const int b,const float* mat,
             for(iw = 0; iw < wo; iw++)   
             {
                 coliw = colib + iw * ho;
-                posiw = iw * stride * h + posic;
+                posiw = iw * stride * ldh + posic;
                 for(ih = 0; ih < ho; ih++)
                 {
                      //OPT col = ib * coSize + iw * ho + ih;
@@ -193,13 +190,13 @@ void col2Im(const int h, const int w, const int c, const int b,const float* mat,
                     for(ikw = 0; ikw < kw; ikw++)
                     {
                         rowikw = rowic + ikw * kh;
-                        posikw = posiw + ikw * h;
+                        posikw = posiw + ikw * ldh;
                         for(ikh = 0; ikh < kh; ikh++)
                         {
                              //OPT row = ic *kSize + ikw * kh + ikh; 
                             row = rowikw + ikh;
-                            //OPT Out[row + col * ckSize] = In[ib * bSize + ic * cSize + (iw * stride + ikw) * h + (stride * ih + ikh)];
-                            //OPT Out[row + col * ckSize] = In[posib + posic + posikw + posih + ikh];
+                            //OPT Im[ib * bSize + ic * cSize + (iw * stride + ikw) * ldh + (stride * ih + ikh)] += mat[row + col * ckSize] ;
+                            //OPT Im[posib + posic + posikw + posih + ikh] += mat[row + col * ckSize];
                             Im[posikw + posih + ikh] += mat[row + col * ckSize];
 
                         }
