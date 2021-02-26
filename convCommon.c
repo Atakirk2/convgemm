@@ -207,6 +207,27 @@ void col2Im(const int h, const int w, const int c, const int b,const float* mat,
     }
 }
 
+/**
+ * Apply biases to a convolution output matrix
+ *
+ * Adds the corresponding bias to each row of the output matrix.
+ *
+ * @param[in] kn Kernel number (Rows of M).
+ * @param[in] cols Number of columns of matrix M.
+ * @param[in] ldm Leading dimension of matrix m.
+ * @param[in] bias Simple precision array of biases of length kn.
+ * @param[in,out] M Simple precision column major order matrix.
+ */
+void sapplyBias(unsigned int kn, unsigned int cols, const float * bias, float* M, unsigned int ldm)
+{
+    unsigned int i, j;
+
+    #pragma omp parallel for private(i)
+    for(j = 0; j < cols; j++)
+        for(i = 0; i < kn; i++)
+            M[i + j * ldm ] += bias[i];
+
+}
 
 /** Adds padding to a stack of matrices
  * 
