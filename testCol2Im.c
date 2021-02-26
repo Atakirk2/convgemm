@@ -192,11 +192,11 @@ int main( int argc, char** argv )
     printf("Peak performance: %g, im2col gemm: %g, implicit gemm: %g\n",perfPeak,perfGemm/perfPeak,perfImp/perfPeak);
     
 #ifdef cIsPadded
-    print_matrices( (h + 2 * pad)*(w+ 2 * pad)*c *b , 1, "dX", dX, 0,  "dXImp", dXImp, 0);
+    //print_matrices( (h + 2 * pad)*(w+ 2 * pad)*c *b , 1, "dX", dX, 0,  "dXImp", dXImp, 0);
     printf("norm(dX-dXImp)=%g\n",compareMatrix((h + 2 * pad) * (w + 2 * pad) * c * b,1,dX,0,dXImp,0));
 #else    
     extractImages(h,w,c,b, pad, dX, dXextract);
-    print_matrices( h *w*c *b , 1, "dX", dXextract, 0,  "dXImp", dXImp, 0);
+    //print_matrices( h *w*c *b , 1, "dX", dXextract, 0,  "dXImp", dXImp, 0);
     printf("norm(dX-dXImp)=%g\n",compareMatrix(h * w * c * b,1,dXextract,0,dXImp,0));
 #endif
     

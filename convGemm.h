@@ -67,8 +67,12 @@
     #define i8BLOCK_MR 16
     #define i8MAX_THREAD 8
 #endif
-
+#define ALIGN 32
         
+#ifndef maxmin
+    #define max(a, b) (((a)>(b))?(a):(b))
+    #define min(a, b) (((a)<(b))?(a):(b))
+#endif
        
 /**threading functions ****/
 struct threadStruct{
@@ -119,7 +123,7 @@ void sgemm_armv8a_neon_8x12(int k,float* restrict alpha, float* restrict a, floa
 void sgemm_ref(int k, int mr_alg, int nr_alg, 	float* restrict alpha, float* restrict a, float* restrict b, float* restrict beta, float* restrict c, int rs_c, int cs_c);
 
 //Packing routines
-void sPack_A(float *A, unsigned int lda, float *A_pack, unsigned int m, unsigned int k);
+void sPack_A(const float *A, unsigned int lda, float *A_pack, unsigned int m, unsigned int k);
 void sPack_B(float *B, unsigned int ldb, float *B_pack, unsigned int k, unsigned int n);
 
 
@@ -194,11 +198,14 @@ void sconvGemm(const char transIm2Col,
                float *restrict C,
                float *restrict Ac_pack, float *restrict Bc_pack);
 
-//Packing routine
-void sPack_im2Col(unsigned int i, unsigned int j,float * restrict B, float * restrict B_pack, 
-                  unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
-                  unsigned int h, unsigned int w, unsigned int ho, unsigned int wo, unsigned int kh, unsigned int kw, unsigned int hStride, unsigned int wStride);
 
+// Packing routine sPack_im2Col
+void sPack_im2Col(unsigned int i, unsigned int j, const float *In,
+                  float *restrict B_pack, unsigned int k, unsigned int n,
+                  unsigned int c, unsigned int h, unsigned int w,
+                  unsigned int ho, unsigned int wo,
+                  unsigned int kh, unsigned int kw,
+                  unsigned int hStride, unsigned int wStride);
 
 /********half precision convolution gemm********/
 void hconvGemm(unsigned int kh, unsigned int kw, unsigned int c, unsigned int kn,

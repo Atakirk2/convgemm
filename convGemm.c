@@ -270,7 +270,7 @@ void sset0sM(unsigned int m, unsigned int n, float *restrict M,
  * @param[in] m Height of the block to pack.
  * @param[in] k Width of the block to pack.
  */
-void sPack_A(float *A, unsigned int lda, float *A_pack, unsigned int m, unsigned int k)
+void sPack_A(const float *A, unsigned int lda, float *A_pack, unsigned int m, unsigned int k)
 {
 	float *A_pack_local;
     unsigned int skipPos;
@@ -1234,7 +1234,6 @@ void i8set0s_mxn(unsigned int m,unsigned int n,int8_t* restrict M,unsigned int l
  * @param[out] B_pack Buffer containing the portion of B packed.
  * @param[in] k Height of the block to pack.
  * @param[in] n Width of the block to pack.
- * @param[in] b Batch size.
  * @param[in] c number of chanels of input tensor.
  * @param[in] h input tensor hight.
  * @param[in] w input tensor width.
@@ -1246,7 +1245,7 @@ void i8set0s_mxn(unsigned int m,unsigned int n,int8_t* restrict M,unsigned int l
  * @param[in] wHtride Horizontal stride to apply the kernels to the input tensor.
 
  */
-void sPack_im2Col(unsigned int i, unsigned int j,float * restrict In, float * restrict B_pack, unsigned int k, unsigned int n, unsigned int b, unsigned int c, 
+void sPack_im2Col(unsigned int i, unsigned int j,const float * restrict In, float * restrict B_pack, unsigned int k, unsigned int n, unsigned int c, 
                  unsigned int h, unsigned int w, 
                  unsigned int ho, unsigned int wo,
                  unsigned int kh, unsigned int kw, 
@@ -1572,7 +1571,8 @@ void sconvGemm(const char transIm2Col,
                             sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&betaInner,Cr,1,ldc);
 						else{//Micro-kernel cannot be applied
                             sgemm_armv8a_asm_8x12(k_alg,&alpha,Ar,Br,&zero,CBuff,1,BLOCK_MR);
-                            sxpbyM(mr_alg,nr_alg,CBuff,1,BLOCK_MR,&betaInner,Cr,1,ldc);
+                            sxpbyM(mr_alg,nr_alg,CBuff,BLOCK_MR,&betaInner,Cr,ldc);
+                        }
                     }
                 }
             }

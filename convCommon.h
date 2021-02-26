@@ -11,8 +11,10 @@
 #include <stdlib.h>
 #include <blis.h>
 
-#define max(a,b) (((a)>(b ))?( a):(b))
-#define min(a,b) (((a)<(b ))?( a):(b))
+#ifndef maxmin
+    #define max(a, b) (((a)>(b))?(a):(b))
+    #define min(a, b) (((a)<(b))?(a):(b))
+#endif
 
 void convolutionNaive(const int h, const int w, const int c,const int b,const float* In,
 					  const int kh,const int kw, const int kn, const float* F, 
